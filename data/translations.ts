@@ -1,3 +1,4 @@
+
 export const translations = {
   ar: {
     // Navigation
@@ -6,6 +7,26 @@ export const translations = {
     nav_design: "التصميم",
     nav_projects: "المشاريع",
     btn_req_design: "اطلب تصميمك",
+    
+    // Auth
+    auth_welcome: "مرحباً بعودتك",
+    auth_create: "إنشاء حساب جديد",
+    auth_verify: "التحقق من البريد",
+    auth_email: "البريد الإلكتروني",
+    auth_pass: "كلمة المرور",
+    auth_name: "الاسم الكامل",
+    auth_phone: "رقم الجوال",
+    auth_signin: "تسجيل الدخول",
+    auth_register: "تسجيل حساب",
+    auth_next: "التالي",
+    auth_verify_btn: "تحقق ودخول",
+    auth_no_account: "ليس لديك حساب؟",
+    auth_have_account: "لديك حساب بالفعل؟",
+    auth_code_sent: "تم إرسال رمز التحقق إلى",
+    auth_enter_code: "أدخل الرمز",
+    auth_wrong_email: "بريد خاطئ؟ رجوع",
+    auth_reg_now: "سجل الآن",
+    auth_login_link: "سجل دخول",
     
     // Hero
     hero_tag: "منذ 2010",
@@ -172,6 +193,26 @@ export const translations = {
     nav_design: "Design",
     nav_projects: "Projects",
     btn_req_design: "Request Design",
+    
+    // Auth
+    auth_welcome: "Welcome Back",
+    auth_create: "Create Account",
+    auth_verify: "Verify Email",
+    auth_email: "Email Address",
+    auth_pass: "Password",
+    auth_name: "Full Name",
+    auth_phone: "Phone Number",
+    auth_signin: "Sign In",
+    auth_register: "Register",
+    auth_next: "Next",
+    auth_verify_btn: "Verify & Login",
+    auth_no_account: "Don't have an account?",
+    auth_have_account: "Already have an account?",
+    auth_code_sent: "Verification code sent to",
+    auth_enter_code: "Enter Code",
+    auth_wrong_email: "Wrong Email? Go Back",
+    auth_reg_now: "Register Now",
+    auth_login_link: "Login",
     
     // Hero
     hero_tag: "Since 2010",

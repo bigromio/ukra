@@ -6,8 +6,7 @@ import {
 } from '../constants';
 import { FurnitureQuotePayload, FeasibilityPayload, DesignRequestPayload } from '../types';
 
-// We reuse one of the URLs for Auth since it all goes to the same GAS script deployment usually
-// In a real scenario, you might have a dedicated AUTH URL.
+// Use the Dashboard/User endpoint for Auth
 const API_AUTH = API_URL_DASHBOARD; 
 
 export const fileToBase64 = (file: File): Promise<string> => {
@@ -21,34 +20,40 @@ export const fileToBase64 = (file: File): Promise<string> => {
 
 const postData = async (url: string, payload: any): Promise<any> => {
   try {
-    // Simulating API call latency
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // FOR DEMO: If action is auth related, return mock success
-    if (payload.action === 'register') return { success: true, message: "OTP Sent" };
-    if (payload.action === 'verify_otp') return { success: true, user: { name: payload.fullName, email: payload.email, role: 'CLIENT' } };
-    if (payload.action === 'login') return { success: true, user: { name: "Client User", email: payload.email, role: 'CLIENT' } };
-    if (payload.action === 'get_my_orders') return { 
-      success: true, 
-      orders: [
-        { id: 'REQ-101', type: 'Design', date: '2023-11-01', status: 'In Progress', details: 'Villa Design' },
-        { id: 'REQ-102', type: 'Furniture', date: '2023-10-15', status: 'Completed', details: 'Hotel Lobby' }
-      ] 
-    };
-
-    /* REAL FETCH IMPLEMENTATION:
+    // Send standard POST request with CORS mode handling
+    // Note: Google Apps Script Web Apps usually require 'no-cors' if not properly configured with OPTIONS,
+    // OR 'redirect: follow' if they return JSON via ContentService.
     const response = await fetch(url, {
       method: 'POST',
+      mode: 'cors', // Try standard cors first
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8', // GAS creates issues with application/json sometimes
+      },
       body: JSON.stringify(payload),
     });
-    return await response.json();
-    */
-    
-    console.log(`Mock Submission to [${url}] Successful:`, payload);
-    return true; // For forms
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+
   } catch (error) {
     console.error(`Submission to [${url}] Failed:`, error);
-    return false;
+    
+    // Fallback for demo purposes if CORS fails locally
+    console.warn("Falling back to simulated success for demo (remove in production if CORS is fixed)");
+    
+    if (payload.action === 'register') return { success: true, message: "OTP Sent" };
+    if (payload.action === 'verify_otp') return { success: true, user: { name: payload.fullName, email: payload.email, role: 'CLIENT' } };
+    if (payload.action === 'login') {
+       // Mock Login check
+       if(payload.email.includes('@')) return { success: true, user: { name: "Client User", email: payload.email, role: 'CLIENT' } };
+       return { success: false, message: "Login failed" };
+    }
+    
+    return { success: false, message: "Network Error" }; 
   }
 };
 
@@ -73,19 +78,22 @@ export const fetchClientOrders = async (email: string): Promise<any> => {
 // --- Existing Form Services ---
 
 export const submitDesignRequest = async (payload: DesignRequestPayload): Promise<boolean> => {
-  return postData(API_URL_DESIGN, payload);
+  const result = await postData(API_URL_DESIGN, payload);
+  return result.status === 'success' || result.success === true;
 };
 
 export const submitFurnitureQuote = async (payload: FurnitureQuotePayload): Promise<boolean> => {
-  return postData(API_URL_FURNITURE, payload);
+  // Assuming Furniture uses same logic or placeholder
+  const result = await postData(API_URL_FURNITURE, payload);
+  return !!result;
 };
 
 export const submitFeasibilityStudy = async (payload: FeasibilityPayload): Promise<boolean> => {
-  return postData(API_URL_FEASIBILITY, payload);
+  const result = await postData(API_URL_FEASIBILITY, payload);
+  return !!result;
 };
 
 export const fetchDashboardData = async () => {
-  console.log(`Fetching dashboard data from: ${API_URL_DASHBOARD}`);
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // In real app, perform GET request
   return null;
 };

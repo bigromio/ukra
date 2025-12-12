@@ -14,11 +14,15 @@ export const GEOFENCE_TARGET = {
   radiusMeters: 500
 };
 
-// API Endpoints (Placeholders)
-export const API_URL_DESIGN = "https://script.google.com/macros/s/AKfycbx_placeholder_design/exec";
+// API Endpoints
+// Design Request App Script
+export const API_URL_DESIGN = "https://script.google.com/macros/s/AKfycby835J0oKVvdEIfrZB8iTGaeMxiU8G1s2GU4XAFqrnbEjfVtHXxA5ULp8Z2VwSf8Js5/exec";
+// User Auth & General Dashboard App Script
+export const API_URL_DASHBOARD = "https://script.google.com/macros/s/AKfycbzxH-3YxRJUI77iraSx1slLUGHkjNVfisR6v4sYY0BXx9SL2qwb0Ybcrgukmqk8Im3P8A/exec";
+
+// Placeholders for others until provided
 export const API_URL_FURNITURE = "https://script.google.com/macros/s/AKfycbx_placeholder_furniture/exec";
 export const API_URL_FEASIBILITY = "https://script.google.com/macros/s/AKfycbx_placeholder_feasibility/exec";
-export const API_URL_DASHBOARD = "https://script.google.com/macros/s/AKfycbx_placeholder_dashboard/exec";
 
 // Mock Data for Dashboard when API fails
 export const MOCK_ORDERS: OrderData[] = [
