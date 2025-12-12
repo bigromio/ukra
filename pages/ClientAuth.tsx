@@ -41,7 +41,7 @@ export const ClientAuth = () => {
       });
       navigate('/my-requests');
     } else {
-      alert(lang === 'ar' ? "فشل تسجيل الدخول، تأكد من البيانات" : "Login failed. Please check your credentials.");
+      alert(res.message || (lang === 'ar' ? "فشل تسجيل الدخول، تأكد من البيانات" : "Login failed. Please check your credentials."));
     }
   };
 
@@ -54,6 +54,8 @@ export const ClientAuth = () => {
 
     if (res.success) {
       setMode('otp');
+      // Optional: Show success toast/alert
+      // alert(lang === 'ar' ? "تم إرسال رمز التحقق إلى بريدك الإلكتروني" : "OTP sent to your email");
     } else {
       alert(res.message || (lang === 'ar' ? "فشل التسجيل" : "Registration failed."));
     }
@@ -63,6 +65,13 @@ export const ClientAuth = () => {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    // We pass formData alongside OTP because the GAS script creates the user ONLY after OTP verification
+    // using the temporary data we stored or pass back. 
+    // The provided GAS script relies on us resending user data OR storing it in sheet temporarily.
+    // The provided GAS script 'handleVerify' uses 'data.fullName', 'data.phone' inside it to create row.
+    // So we MUST pass these fields again.
+    
     const res = await verifyClientOTP(formData.email, formData.otp, formData);
     setLoading(false);
 
@@ -74,7 +83,7 @@ export const ClientAuth = () => {
       });
       navigate('/my-requests');
     } else {
-      alert(lang === 'ar' ? "رمز التحقق غير صحيح" : "Invalid OTP Code");
+      alert(res.message || (lang === 'ar' ? "رمز التحقق غير صحيح" : "Invalid OTP Code"));
     }
   };
 
