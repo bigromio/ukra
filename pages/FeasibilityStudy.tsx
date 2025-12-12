@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { submitToGAS } from '../services/apiService';
+import { submitFeasibilityStudy } from '../services/apiService';
 import { Loader2, Check } from 'lucide-react';
+import { FeasibilityPayload } from '../types';
 
 export const FeasibilityStudy = () => {
   const { t } = useLanguage();
@@ -23,9 +24,21 @@ export const FeasibilityStudy = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    const success = await submitToGAS({ type: 'feasibility', ...formData });
+    
+    const payload: FeasibilityPayload = { 
+      type: 'feasibility', 
+      location: formData.location,
+      budget: formData.budget,
+      areaSize: formData.areaSize,
+      projectType: formData.projectType,
+      contactName: formData.contactName,
+      contactEmail: formData.contactEmail,
+      timestamp: new Date().toISOString()
+    };
+    
+    const ok = await submitFeasibilityStudy(payload);
     setIsSubmitting(false);
-    if(success) setSuccess(true);
+    if(ok) setSuccess(true);
   };
 
   if (success) {

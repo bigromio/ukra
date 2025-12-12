@@ -1,16 +1,19 @@
 export const translations = {
   ar: {
+    // Navigation
     nav_home: "الرئيسية",
     nav_supplies: "التوريدات",
     nav_design: "التصميم",
     nav_projects: "المشاريع",
     btn_req_design: "اطلب تصميمك",
     
+    // Hero
     hero_tag: "منذ 2010",
     hero_title: "أوكرة للحلول المتكاملة",
     hero_desc: "الوجهة الأولى للتجهيزات الفندقية، التصميم الداخلي، وتطوير المشاريع التجارية. نجمع بين الفخامة والاستدامة لنصنع الفارق.",
     hero_btn: "اكتشف خدماتنا",
 
+    // Supplies
     supplies_tag: "ضيافة فاخرة",
     supplies_title: "أوكرة للتوريدات الفندقية",
     supplies_desc: "نقدم حلولاً شاملة لتجهيزات الفنادق بأعلى معايير الجودة. وكلاء لعلامات عالمية مثل Chopard و Amouage، نوفر بياضات قطنية 100% وأثاث فندقي متين.",
@@ -19,6 +22,7 @@ export const translations = {
     feat_minibars: "ميني بار وخزنات",
     supplies_btn: "تصفح الكتالوج",
 
+    // Design
     design_tag: "إبداع ووظيفة",
     design_title: "أوكرة للتصميم الداخلي",
     design_desc: "تصاميمنا تروي قصصاً. ندمج بين جماليات المواد الطبيعية وبين الوظيفة والاستدامة. ننفذ مشاريع تسليم مفتاح للفنادق والمساكن الراقية.",
@@ -26,6 +30,7 @@ export const translations = {
     feat_sustainable: "مواد مستدامة",
     design_btn: "اطلب استشارة مجانية",
 
+    // Development
     development_tag: "رؤية تجارية",
     development_title: "تطوير المشاريع التجارية",
     development_desc: "من الفكرة إلى الافتتاح. متخصصون في تجهيز المحلات التجارية والمعارض (Fit-out)، دراسات الجدوى، وبناء الهوية التجارية.",
@@ -33,10 +38,11 @@ export const translations = {
     feat_retail_fitout: "تجهيز معارض",
     development_btn: "ابدأ مشروعك",
 
+    // Design Form
+    story_tag: "ابدأ قصتك",
     form_title: "رحلة إبداع.. تبدأ بك",
     form_subtitle: "للحصول على عرض سعر دقيق يليق بتطلعاتك، نرجو تعبئة النموذج أدناه بتفاصيل مشروعك.",
     
-    // Form Labels
     lbl_source: "كيف عرفت عن أوكرة؟",
     lbl_sales_code: "كود المندوب (Sales Code)",
     head_client: "1. معلومات العميل",
@@ -53,7 +59,7 @@ export const translations = {
     lbl_com_type: "نوع النشاط التجاري",
     lbl_space_name: "اسم المساحة",
     lbl_project_name: "اسم المشروع التجاري",
-    lbl_area: "المساحة (متر مربع)",
+    lbl_area: "المساحة المراد تصميمها (متر مربع)",
     
     head_scope: "3. نطاق العمل",
     scope_2d: "مخطط 2D توزيع اثاث",
@@ -61,73 +67,136 @@ export const translations = {
     scope_360: "جولة 360°",
     scope_video: "فيديو",
 
-    head_style: "4. الطراز المفضل",
+    head_style: "4. الطراز المفضل (Style)",
     st_modern: "مودرن",
     st_neo: "نيوكلاسيك",
     st_lux: "لاكشري",
     st_boho: "بوهيمي",
     st_ind: "صناعي",
     st_islamic: "إسلامي مودرن",
+    st_scandinavian: "إسكندنافي",
+    st_minimal: "مينيماليست",
 
     head_colors: "5. الألوان",
-    pal_warm_earth: "ألوان ترابية",
+    pal_warm_earth: "ألوان ترابية دافئة",
     pal_neutral_calm: "محايدة وهادئة",
     pal_ocean_breeze: "نسيم المحيط",
+    pal_forest_nature: "طبيعة الغابة",
     pal_moody_dark: "داكنة وفخمة",
+    pal_greige_luxury: "فخامة الجريج",
+    pal_royal_blue: "أزرق ملكي",
     pal_gold_black: "ذهبي وأسود",
+    
+    lbl_prefColors: "ألوان أخرى تفضلها",
+    lbl_dislikes: "ألوان لا تحبها (مستبعدة)",
 
     head_budget: "6. الميزانية والصور",
-    lbl_budget: "الميزانية التقديرية",
-    lbl_upload_hint: "يرجى رفع صور للإلهام (اختياري)",
+    lbl_budget: "الميزانية التقديرية للتنفيذ",
+    lbl_upload_hint: "يرجى رفع صور للإلهام (بحد أقصى 6 صور)",
+    lbl_notes: "ملاحظات إضافية",
     btn_submit: "إرسال الطلب",
     
-    // Missing keys added here
-    alert_success_title: "تم استلام طلبك بنجاح",
-    alert_success_msg: "سيقوم فريقنا بمراجعة التفاصيل والتواصل معك قريباً.",
+    alert_success_title: "تم إرسال طلبك بنجاح!",
+    alert_success_msg: "يقوم نظامنا الآن بمعالجة طلبك.. سيصلك إيميل يحتوي على عرض السعر وتفاصيل المشروع خلال لحظات.",
+    
+    // Dropdown Options
     opt_select: "اختر...",
-    opt_sales: "عن طريق مندوب",
-    opt_apt: "شقة",
+    opt_google: "بحث جوجل",
+    opt_instagram: "انستجرام",
+    opt_tiktok: "تيك توك",
+    opt_snapchat: "سناب شات",
+    opt_facebook: "فيسبوك",
+    opt_google_maps: "خرائط جوجل",
+    opt_sales: "مندوب مبيعات",
+    opt_other: "أخرى",
+    
+    opt_apt: "شقة سكنية",
     opt_villa: "فيلا",
     opt_palace: "قصر",
-    opt_office: "مكتب",
-    opt_cafe: "مطعم / كافيه",
+    opt_majlis: "مجلس / صالة",
+    
+    opt_office: "مكتب تجاري",
+    opt_cafe: "كافيه / مطعم",
     opt_hotel: "فندق",
-    opt_eco: "اقتصادي",
-    opt_med: "متوسط",
-    opt_vip: "VIP",
+    opt_retail: "محل تجاري (Retail)",
+    
+    opt_eco: "اقتصادية",
+    opt_med: "متوسطة",
+    opt_vip: "فخمة / VIP",
     opt_na: "غير محدد",
-    txt_upload: "رفع صورة",
+    txt_upload: "تحميل",
 
+    // Dashboard
+    dash_welcome: "مرحباً",
+    dash_overview: "نظرة عامة",
+    dash_orders: "الطلبات",
+    dash_staff: "الموظفين",
+    dash_settings: "الإعدادات",
+    dash_logout: "تسجيل خروج",
+    dash_total_req: "إجمالي الطلبات",
+    dash_monthly: "الطلبات الشهرية",
+    dash_dist: "توزيع الطلبات",
+    
+    col_id: "رقم الطلب",
+    col_type: "النوع",
+    col_client: "العميل",
+    col_date: "التاريخ",
+    col_amount: "القيمة",
+    col_status: "الحالة",
+    col_action: "إجراء",
+    status_pending: "قيد الانتظار",
+    status_progress: "جاري العمل",
+    status_completed: "مكتمل",
+    
+    // Login
+    login_title: "تسجيل الدخول",
+    lbl_username: "اسم المستخدم",
+    lbl_pin: "رمز الدخول (PIN)",
+    btn_signin: "دخول",
+    login_error: "بيانات الدخول غير صحيحة",
+    login_demo: "تجريبي: admin/1234",
+
+    // Footer
     footer_desc: "شريككم الاستراتيجي في المدينة المنورة والمملكة منذ 2010.",
+    footer_links: "روابط سريعة",
+    footer_loc: "موقعنا",
+    footer_store: "المتجر الإلكتروني",
+    footer_privacy: "سياسة الخصوصية",
+    btn_map: "افتح في خرائط جوجل",
     footer_rights: "جميع الحقوق محفوظة © 2025 أوكرة",
   },
   en: {
+    // Navigation
     nav_home: "Home",
     nav_supplies: "Supplies",
     nav_design: "Design",
     nav_projects: "Projects",
     btn_req_design: "Request Design",
     
+    // Hero
     hero_tag: "Since 2010",
     hero_title: "UKRA Integrated Solutions",
     hero_desc: "The premier destination for Hotel Supplies, Interior Design, and Commercial Development. Combining luxury and sustainability to make a difference.",
     hero_btn: "Discover Services",
 
+    // Supplies
     supplies_tag: "Luxury Hospitality",
     supplies_title: "UKRA Hotel Supplies",
-    supplies_desc: "Providing comprehensive hotel supply solutions with the highest quality standards. Agents for global brands like Chopard & Amouage.",
+    supplies_desc: "Providing comprehensive hotel supply solutions with the highest quality standards. Agents for global brands like Chopard & Amouage. We provide 100% cotton linens and durable hotel furniture.",
     feat_linens: "Linens & Furniture",
     feat_amenities: "Amenities",
     feat_minibars: "Minibars & Safes",
     supplies_btn: "View Catalogue",
 
+    // Design
     design_tag: "Creativity & Function",
     design_title: "UKRA Interior Design",
-    design_desc: "Our designs tell stories. We blend the aesthetics of natural materials with function and sustainability.",
+    design_desc: "Our designs tell stories. We blend the aesthetics of natural materials with function and sustainability. Turnkey projects for hotels and luxury residences.",
     feat_design_build: "Design & Build",
     feat_sustainable: "Sustainable Materials",
     design_btn: "Free Consultation",
 
+    // Development
     development_tag: "Commercial Vision",
     development_title: "Commercial Development",
     development_desc: "From concept to opening. Specialized in retail fit-outs, feasibility studies, and complete brand identity building.",
@@ -135,8 +204,10 @@ export const translations = {
     feat_retail_fitout: "Retail Fit-out",
     development_btn: "Start Project",
 
+    // Design Form
+    story_tag: "Start Your Story",
     form_title: "A Creative Journey... Starts With You",
-    form_subtitle: "To get a precise quote that meets your expectations, please fill out the form below.",
+    form_subtitle: "To get a precise quote that meets your expectations, please fill out the form below with your project details.",
 
     lbl_source: "How did you hear about UKRA?",
     lbl_sales_code: "Sales Code",
@@ -150,17 +221,17 @@ export const translations = {
     lbl_category: "Project Category",
     cat_res: "Residential",
     cat_com: "Commercial",
-    lbl_res_type: "Unit Type",
-    lbl_com_type: "Business Type",
+    lbl_res_type: "Residential Unit Type",
+    lbl_com_type: "Commercial Activity Type",
     lbl_space_name: "Space Name",
-    lbl_project_name: "Project Name",
+    lbl_project_name: "Commercial Project Name",
     lbl_area: "Area (sqm)",
 
     head_scope: "3. Scope of Work",
-    scope_2d: "2D Layout",
-    scope_3d: "3D Rendering",
+    scope_2d: "2D Furniture Layout",
+    scope_3d: "3D Realistic Images",
     scope_360: "360° Tour",
-    scope_video: "Video Walkthrough",
+    scope_video: "Video",
 
     head_style: "4. Preferred Style",
     st_modern: "Modern",
@@ -169,37 +240,95 @@ export const translations = {
     st_boho: "Bohemian",
     st_ind: "Industrial",
     st_islamic: "Islamic Modern",
+    st_scandinavian: "Scandinavian",
+    st_minimal: "Minimalist",
 
     head_colors: "5. Colors",
     pal_warm_earth: "Warm Earth",
     pal_neutral_calm: "Neutral Calm",
     pal_ocean_breeze: "Ocean Breeze",
+    pal_forest_nature: "Forest Nature",
     pal_moody_dark: "Moody Dark",
+    pal_greige_luxury: "Greige Luxury",
+    pal_royal_blue: "Royal Blue",
     pal_gold_black: "Gold & Black",
+    
+    lbl_prefColors: "Other preferred colors",
+    lbl_dislikes: "Colors you dislike (excluded)",
 
     head_budget: "6. Budget & Images",
     lbl_budget: "Estimated Budget",
-    lbl_upload_hint: "Upload inspiration images (Optional)",
+    lbl_upload_hint: "Please upload inspiration images (up to 6 images)",
+    lbl_notes: "Additional Notes",
     btn_submit: "Submit Request",
 
-    // Missing keys added here
-    alert_success_title: "Request Received Successfully",
-    alert_success_msg: "Our team will review the details and contact you shortly.",
+    alert_success_title: "Request Sent Successfully!",
+    alert_success_msg: "We are processing your request. You will receive an email with the quotation and project details momentarily.",
+
+    // Dropdown Options
     opt_select: "Select...",
+    opt_google: "Google Search",
+    opt_instagram: "Instagram",
+    opt_tiktok: "TikTok",
+    opt_snapchat: "Snapchat",
+    opt_facebook: "Facebook",
+    opt_google_maps: "Google Maps",
     opt_sales: "Sales Representative",
+    opt_other: "Other",
+    
     opt_apt: "Apartment",
     opt_villa: "Villa",
     opt_palace: "Palace",
-    opt_office: "Office",
-    opt_cafe: "Restaurant / Cafe",
+    opt_majlis: "Majlis / Lounge",
+    
+    opt_office: "Commercial Office",
+    opt_cafe: "Cafe / Restaurant",
     opt_hotel: "Hotel",
+    opt_retail: "Retail Store",
+
     opt_eco: "Economic",
     opt_med: "Medium",
-    opt_vip: "VIP",
+    opt_vip: "Luxury / VIP",
     opt_na: "Not Specified",
-    txt_upload: "Upload Image",
+    txt_upload: "Upload",
 
+    // Dashboard
+    dash_welcome: "Welcome",
+    dash_overview: "Overview",
+    dash_orders: "Orders",
+    dash_staff: "Staff",
+    dash_settings: "Settings",
+    dash_logout: "Logout",
+    dash_total_req: "Total Requests",
+    dash_monthly: "Monthly Requests",
+    dash_dist: "Request Distribution",
+    
+    col_id: "Order ID",
+    col_type: "Type",
+    col_client: "Client",
+    col_date: "Date",
+    col_amount: "Amount",
+    col_status: "Status",
+    col_action: "Action",
+    status_pending: "Pending",
+    status_progress: "In Progress",
+    status_completed: "Completed",
+    
+    // Login
+    login_title: "Sign in to Dashboard",
+    lbl_username: "Username",
+    lbl_pin: "PIN Code",
+    btn_signin: "Sign in",
+    login_error: "Invalid credentials",
+    login_demo: "Demo: admin/1234",
+
+    // Footer
     footer_desc: "Your strategic partner in Madinah & KSA since 2010.",
+    footer_links: "Quick Links",
+    footer_loc: "Location",
+    footer_store: "Online Store",
+    footer_privacy: "Privacy Policy",
+    btn_map: "Open in Google Maps",
     footer_rights: "All Rights Reserved © 2025 UKRA",
   }
 };

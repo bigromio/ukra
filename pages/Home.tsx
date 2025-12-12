@@ -25,7 +25,7 @@ const BackgroundSlider = ({ images }: { images: string[] }) => {
   );
 };
 
-const Section = ({ id, images, tag, title, desc, btnText, btnLink, reverse = false }: any) => {
+const Section = ({ id, images, tag, title, desc, btnText, btnLink, btnIsExternal = false }: any) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -51,14 +51,20 @@ const Section = ({ id, images, tag, title, desc, btnText, btnLink, reverse = fal
           className={`text-block max-w-[650px] text-white flow-up ${isVisible ? 'visible' : ''}`}
         >
           <span className="section-tag">{tag}</span>
-          <h2 className="text-5xl md:text-6xl font-black mb-6 leading-tight text-white drop-shadow-lg">{title}</h2>
-          <p className="text-lg md:text-xl text-gray-200 mb-8 font-light leading-relaxed max-w-[90%]">
+          <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight text-white drop-shadow-2xl">{title}</h2>
+          <p className="text-lg md:text-xl text-gray-200 mb-10 font-light leading-relaxed max-w-[90%]">
             {desc}
           </p>
           
-          <Link to={btnLink} className="btn-main">
-            {btnText}
-          </Link>
+          {btnIsExternal ? (
+             <a href={btnLink} className="btn-main text-ukra-navy">
+               {btnText}
+             </a>
+          ) : (
+             <Link to={btnLink} className="btn-main text-ukra-navy">
+               {btnText}
+             </Link>
+          )}
         </div>
       </div>
     </section>
@@ -95,7 +101,8 @@ export const Home = () => {
         title={t('supplies_title')}
         desc={t('supplies_desc')}
         btnText={t('supplies_btn')}
-        btnLink="/furniture-quote"
+        btnLink="https://ukrastore.com"
+        btnIsExternal={true}
       />
 
       <Section

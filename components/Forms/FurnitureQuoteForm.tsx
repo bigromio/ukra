@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Upload, Send, Loader2 } from 'lucide-react';
 import { FurnitureItem } from '../../types';
-import { fileToBase64, submitToGAS } from '../../services/apiService';
+import { fileToBase64, submitFurnitureQuote } from '../../services/apiService';
 
 export const FurnitureQuoteForm = () => {
   const [items, setItems] = useState<FurnitureItem[]>([
@@ -56,7 +56,7 @@ export const FurnitureQuoteForm = () => {
       timestamp: new Date().toISOString()
     };
 
-    const success = await submitToGAS(payload);
+    const success = await submitFurnitureQuote(payload);
     
     setIsSubmitting(false);
     if (success) {

@@ -8,14 +8,22 @@ import { useGeofence } from './hooks/useGeofence';
 import { FurnitureQuoteForm } from './components/Forms/FurnitureQuoteForm';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
+import { ClientAuth } from './pages/ClientAuth';
+import { ClientOrders } from './pages/ClientOrders';
 import { Home } from './pages/Home';
 import { DesignRequest } from './pages/DesignRequest';
 import { FeasibilityStudy } from './pages/FeasibilityStudy';
 
-// Protected Route Wrapper
-const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
+// Protected Route Wrapper for Admin
+const AdminRoute = ({ children }: { children: React.ReactElement }) => {
+  const { isAuthenticated, isAdmin } = useAuth();
+  return isAuthenticated && isAdmin ? children : <Navigate to="/admin-login" replace />;
+};
+
+// Protected Route for Client
+const ClientRoute = ({ children }: { children: React.ReactElement }) => {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/admin-login" replace />;
+  return isAuthenticated ? children : <Navigate to="/client-login" replace />;
 };
 
 const AppContent = () => {
@@ -25,19 +33,21 @@ const AppContent = () => {
       <InstallModal />
       <Routes>
         {/* Public Routes with Layout */}
-        <Route path="/" element={<Layout><Home /></Layout>} />
-        <Route path="/design-request" element={<Layout><DesignRequest /></Layout>} />
-        <Route path="/furniture-quote" element={<Layout><FurnitureQuoteForm /></Layout>} />
-        <Route path="/feasibility-study" element={<Layout><FeasibilityStudy /></Layout>} />
+        <Route element={<Layout><Home /></Layout>} path="/" />
+        <Route element={<Layout><DesignRequest /></Layout>} path="/design-request" />
+        <Route element={<Layout><FurnitureQuoteForm /></Layout>} path="/furniture-quote" />
+        <Route element={<Layout><FeasibilityStudy /></Layout>} path="/feasibility-study" />
+        <Route element={<Layout><Login /></Layout>} path="/admin-login" />
         
-        {/* Auth Routes */}
-        <Route path="/admin-login" element={<Login />} />
+        {/* Client Auth Routes */}
+        <Route element={<Layout><ClientAuth /></Layout>} path="/client-login" />
+        <Route element={<Layout><ClientRoute><ClientOrders /></ClientRoute></Layout>} path="/my-requests" />
         
-        {/* Private Routes */}
+        {/* Admin Dashboard (No Layout) */}
         <Route path="/dashboard" element={
-          <ProtectedRoute>
+          <AdminRoute>
             <Dashboard />
-          </ProtectedRoute>
+          </AdminRoute>
         } />
       </Routes>
     </>

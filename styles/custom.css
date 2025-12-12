@@ -17,6 +17,14 @@
     --duration-zoom: 15s;
 }
 
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Cairo', sans-serif;
+}
+
 /* Animations */
 .flow-up {
     opacity: 0;
@@ -132,3 +140,19 @@ html[dir="ltr"] .section-overlay {
 /* Utilities */
 .text-ukra-navy { color: var(--primary-navy); }
 .text-ukra-gold { color: var(--accent-gold); }
+
+/* Scroll To Top */
+.scroll-to-top {
+    position: fixed; bottom: 30px; right: 30px;
+    width: 50px; height: 50px;
+    background: var(--accent-gold); color: var(--primary-navy);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 100;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    opacity: 0; transform: translateY(20px);
+    transition: 0.3s;
+}
+html[dir="rtl"] .scroll-to-top { left: 30px; right: auto; }
+
+.scroll-to-top.show { opacity: 1; transform: translateY(0); }
+.scroll-to-top:hover { transform: translateY(-5px); background: #fff; }
