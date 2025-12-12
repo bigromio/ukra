@@ -1,0 +1,134 @@
+
+/* ==========================================================================
+   UKRA.SA | Main Stylesheet Ported to React
+   ========================================================================== */
+
+:root {
+    --bg-body: #F9F9F9;
+    --bg-card: #FFFFFF;
+    --bg-input: #FAFAFA;
+    --primary-navy: #1a2a3a;
+    --accent-gold: #c5a059;
+    --accent-gold-light: #fffcf5;
+    --text-grey: #666666;
+    --border-light: #eeeeee;
+    --ease-fluid: cubic-bezier(0.25, 1, 0.5, 1);
+    --duration-slow: 1.2s;
+    --duration-zoom: 15s;
+}
+
+/* Animations */
+.flow-up {
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity var(--duration-slow) ease-out, transform var(--duration-slow) var(--ease-fluid);
+    will-change: opacity, transform;
+}
+.flow-up.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@keyframes zoomEffect {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.15); }
+}
+
+/* Immersive Sections */
+.immersive-section {
+    position: relative; width: 100%; height: 100vh;
+    overflow: hidden; display: flex; align-items: center;
+    background-color: var(--primary-navy);
+}
+
+.bg-gallery {
+    position: absolute; top: 0; left: 0; width: 100%; height: 120%;
+    z-index: 1;
+}
+
+.bg-slide {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-size: cover; background-position: center;
+    opacity: 0;
+    transition: opacity 2s ease-in-out;
+    transform: scale(1);
+}
+
+.bg-slide.active {
+    opacity: 1;
+    animation: zoomEffect var(--duration-zoom) linear infinite alternate;
+}
+
+.section-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
+    background: linear-gradient(to right, rgba(26,42,58,0.9) 0%, rgba(26,42,58,0.4) 60%, transparent 100%);
+}
+html[dir="ltr"] .section-overlay {
+    background: linear-gradient(to left, rgba(26,42,58,0.9) 0%, rgba(26,42,58,0.4) 60%, transparent 100%);
+}
+
+.content-wrapper {
+    position: relative; z-index: 3; width: 100%; max-width: 1400px;
+    margin: 0 auto; padding: 0 5%;
+    display: flex; flex-direction: column; justify-content: center;
+    height: 100%;
+}
+
+.section-tag {
+    color: var(--accent-gold); font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; display: block; margin-bottom: 15px; font-size: 14px;
+}
+
+.features { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 40px; }
+.feat-item {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    padding: 10px 20px; border-radius: 30px;
+    color: #fff; font-size: 14px;
+    backdrop-filter: blur(5px);
+    display: flex; align-items: center; gap: 10px;
+    transition: 0.3s;
+}
+.feat-item:hover { background: rgba(255,255,255,0.2); transform: translateY(-3px); }
+
+/* Buttons */
+.btn-main {
+    display: inline-block; padding: 16px 45px;
+    background: var(--accent-gold); color: #fff;
+    border-radius: 50px; font-weight: 700; font-size: 16px;
+    border: none; cursor: pointer; position: relative; overflow: hidden; z-index: 1;
+    box-shadow: 0 10px 20px rgba(197, 160, 89, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.btn-main:hover { color: var(--primary-navy); transform: translateY(-3px); box-shadow: 0 15px 30px rgba(197, 160, 89, 0.5); }
+
+/* Form Styling */
+.form-page-bg {
+    background: linear-gradient(rgba(10, 20, 30, 0.85), rgba(10, 20, 30, 0.85)),
+                url('https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=1920');
+    background-size: cover; background-position: center; background-attachment: fixed;
+    min-height: 100vh;
+}
+.form-container {
+    max-width: 900px; margin: 0 auto;
+    background: var(--bg-card); padding: 40px; border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.03); border: 1px solid var(--border-light);
+}
+.style-card {
+    border: 2px solid transparent; border-radius: 15px; overflow: hidden; cursor: pointer; 
+    background: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.03); transition: 0.3s; position: relative;
+    text-align: center;
+}
+.style-card.selected { border-color: var(--accent-gold); background: var(--accent-gold-light); }
+.style-card img { width: 100%; height: 130px; object-fit: cover; }
+
+.palette-card {
+    border: 1px solid #eee; border-radius: 10px; padding: 12px; background: #fff; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; transition: 0.3s;
+}
+.palette-card.selected { border-color: var(--accent-gold); background: var(--accent-gold-light); }
+.color-bars { display: flex; width: 100%; height: 30px; border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+.color-stripe { flex: 1; height: 100%; }
+
+/* Utilities */
+.text-ukra-navy { color: var(--primary-navy); }
+.text-ukra-gold { color: var(--accent-gold); }

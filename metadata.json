@@ -1,0 +1,7 @@
+{
+  "name": "UKRA Luxury Interiors",
+  "description": "Enterprise Web Platform & PWA for UKRA Luxury Interior Design & Supplies.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
