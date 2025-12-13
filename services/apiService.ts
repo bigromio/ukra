@@ -20,14 +20,12 @@ export const fileToBase64 = (file: File): Promise<string> => {
 
 /**
  * Robust POST request handler for Google Apps Script.
- * 1. content-type: text/plain -> Prevents browser OPTIONS preflight (CORS check).
- * 2. redirect: follow -> Google Apps Script redirects 302 to the final content.
  */
 const postData = async (url: string, payload: any): Promise<any> => {
   try {
     const response = await fetch(url, {
       method: 'POST',
-      redirect: 'follow', // Crucial for GAS Web Apps
+      redirect: 'follow', 
       headers: {
         'Content-Type': 'text/plain;charset=utf-8', 
       },
@@ -38,7 +36,6 @@ const postData = async (url: string, payload: any): Promise<any> => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // Attempt to parse JSON, handle potential HTML error pages from Google
     const text = await response.text();
     try {
       return JSON.parse(text);
@@ -49,18 +46,17 @@ const postData = async (url: string, payload: any): Promise<any> => {
 
   } catch (error) {
     console.error(`Submission to [${url}] Failed:`, error);
-    return { success: false, message: "تعذر الاتصال بالخادم. تأكد من الإنترنت أو حاول لاحقاً." }; 
+    return { success: false, message: "تعذر الاتصال بالخادم." }; 
   }
 };
 
-// --- Client Auth Services ---
+// --- Auth & Users ---
 
 export const registerClient = async (fullName: string, email: string, phone: string, password: string): Promise<any> => {
   return postData(API_AUTH, { action: 'register', fullName, email, phone, password });
 };
 
 export const verifyClientOTP = async (email: string, otp: string, userData: any): Promise<any> => {
-  // We send userData again because the backend creates the user only after OTP verification
   return postData(API_AUTH, { 
     action: 'verify_otp', 
     email, 
@@ -75,11 +71,19 @@ export const loginClient = async (email: string, password: string): Promise<any>
   return postData(API_AUTH, { action: 'login', email, password });
 };
 
+// --- Data Fetching ---
+
+// Fetches orders for a SPECIFIC client (Client View)
 export const fetchClientOrders = async (email: string): Promise<any> => {
   return postData(API_AUTH, { action: 'get_my_orders', email });
 };
 
-// --- Existing Form Services ---
+// Fetches ALL orders (Admin View) - sends empty email to trigger admin mode in GAS
+export const fetchAllOrders = async (): Promise<any> => {
+  return postData(API_AUTH, { action: 'get_my_orders', email: null });
+};
+
+// --- Form Submission ---
 
 export const submitDesignRequest = async (payload: DesignRequestPayload): Promise<boolean> => {
   const result = await postData(API_URL_DESIGN, payload);
@@ -96,6 +100,7 @@ export const submitFeasibilityStudy = async (payload: FeasibilityPayload): Promi
   return !!result && (result.status === 'success' || result.success === true);
 };
 
+// Deprecated in favor of direct fetchAllOrders calls inside Dashboard
 export const fetchDashboardData = async () => {
   return null;
 };

@@ -2,44 +2,79 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { UserRole, DashboardStats, OrderData } from '../types';
-import { fetchDashboardData } from '../services/apiService';
+import { fetchClientOrders, fetchAllOrders } from '../services/apiService';
 import { MOCK_STATS, MOCK_ORDERS } from '../constants';
 import { OrderDetailsModal } from '../components/Dashboard/OrderDetailsModal';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
-import { LayoutDashboard, LogOut, FileText, Settings, Users, Bell, Globe, Eye, Cog } from 'lucide-react';
+import { LayoutDashboard, LogOut, FileText, Settings, Users, Bell, Globe, Eye, Cog, User } from 'lucide-react';
 
 const COLORS = ['#c5a059', '#1a2a3a', '#9ca3af'];
 
 export const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isClient, isAdmin } = useAuth();
   const { t, dir, toggleLang, lang } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders'>('overview');
+  
+  // Clients land on 'orders', Admins land on 'overview'
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders'>(isClient ? 'orders' : 'overview');
+  
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Mobile Sidebar State
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-
-  // Modal State
   const [selectedOrder, setSelectedOrder] = useState<OrderData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    // Simulate fetching data
-    const loadData = async () => {
-      setLoading(true);
-      await fetchDashboardData(); 
-      // Fallback to Mock Data because we don't have a real backend
-      setStats(MOCK_STATS);
-      setOrders(MOCK_ORDERS);
-      setLoading(false);
-    };
+    // If client logs in, force 'orders' tab
+    if (isClient) setActiveTab('orders');
+    
     loadData();
-  }, []);
+  }, [user]);
+
+  const loadData = async () => {
+    setLoading(true);
+    let fetchedOrders: any[] = [];
+    
+    try {
+      if (isClient && user?.email) {
+        // Fetch only client specific orders
+        const res = await fetchClientOrders(user.email);
+        if (res.success) fetchedOrders = res.orders;
+      } else if (isAdmin) {
+        // Fetch ALL orders
+        const res = await fetchAllOrders();
+        if (res.success) fetchedOrders = res.orders;
+      }
+
+      // If API returns empty or fails (e.g. testing mode), use mocks ONLY for admins to see charts
+      if (fetchedOrders.length === 0 && isAdmin) {
+        setOrders(MOCK_ORDERS);
+        setStats(MOCK_STATS);
+      } else {
+        setOrders(fetchedOrders);
+        // Calculate stats from real orders if we are admin
+        if (isAdmin) {
+             const calculatedStats: DashboardStats = {
+                totalRequests: fetchedOrders.length,
+                designCount: fetchedOrders.filter(o => o.type === 'Design').length,
+                furnitureCount: fetchedOrders.filter(o => o.type === 'Furniture').length,
+                feasibilityCount: fetchedOrders.filter(o => o.type === 'Feasibility').length,
+                // Simple mock monthly data based on filtered orders (would require date parsing logic)
+                monthlyData: MOCK_STATS.monthlyData 
+             };
+             setStats(calculatedStats);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load dashboard data", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleViewDetails = (order: OrderData) => {
     setSelectedOrder(order);
@@ -47,12 +82,15 @@ export const Dashboard = () => {
   };
 
   const handleNotifyClient = (id: string, newStatus: string) => {
+    // Client cannot notify themselves in this context, only admins
+    if (!isAdmin) return;
+
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus as any } : o));
     if (selectedOrder && selectedOrder.id === id) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus as any } : null);
     }
     const clientName = orders.find(o => o.id === id)?.client || 'Client';
-    alert(`Notification sent to ${clientName}:\n"Your order ${id} status has been updated to: ${newStatus}"`);
+    alert(`System updated: ${id} is now ${newStatus}`);
     setIsModalOpen(false);
   };
 
@@ -64,7 +102,6 @@ export const Dashboard = () => {
     { name: t('feat_feasibility'), value: stats.feasibilityCount },
   ] : [];
 
-  // Determine Sidebar Translation for Mobile
   const sidebarTranslate = lang === 'ar' 
     ? (isSidebarOpen ? 'translate-x-0' : 'translate-x-full') 
     : (isSidebarOpen ? 'translate-x-0' : '-translate-x-full');
@@ -72,7 +109,6 @@ export const Dashboard = () => {
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden font-cairo" dir={dir}>
       
-      {/* Mobile Sidebar Backdrop */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-20 md:hidden"
@@ -84,28 +120,49 @@ export const Dashboard = () => {
       <aside className={`fixed inset-y-0 z-30 w-64 bg-ukra-navy text-white flex-shrink-0 flex flex-col transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${sidebarTranslate}`}>
         <div className="p-6 border-b border-gray-700 flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-ukra-gold">UKRA Admin</h2>
-            <p className="text-sm text-gray-400 mt-1">{t('dash_welcome')}, {user.name.split(' ')[0]}</p>
+            <h2 className="text-2xl font-bold text-ukra-gold">UKRA</h2>
+            <p className="text-sm text-gray-400 mt-1">
+               {isClient ? 'Client Portal' : 'Admin Panel'}
+            </p>
           </div>
-          {/* Close button for mobile only inside sidebar */}
           <button className="md:hidden text-gray-400" onClick={() => setSidebarOpen(false)}>
             <LogOut className="w-5 h-5 rotate-180" />
           </button>
         </div>
-        <nav className="flex-grow p-4 space-y-2">
-          <button
-            onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
-            className={`flex items-center w-full px-4 py-3 rounded-md transition-colors ${activeTab === 'overview' ? 'bg-ukra-gold text-ukra-navy font-bold' : 'hover:bg-gray-700 text-gray-300'}`}
-          >
-            <LayoutDashboard className="w-5 h-5 rtl:ml-3 ltr:mr-3" /> {t('dash_overview')}
-          </button>
+        
+        {/* User Info Card (Sidebar) */}
+        <div className="p-4 bg-gray-800/50 mx-4 mt-4 rounded-lg flex items-center gap-3">
+           <div className="bg-ukra-gold p-2 rounded-full text-ukra-navy">
+             <User className="w-5 h-5" />
+           </div>
+           <div className="overflow-hidden">
+             <p className="text-sm font-bold truncate">{user.name}</p>
+             <p className="text-xs text-gray-400 truncate">{user.role}</p>
+           </div>
+        </div>
+
+        <nav className="flex-grow p-4 space-y-2 mt-4">
+          
+          {/* Admin Only: Overview */}
+          {isAdmin && (
+            <button
+              onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
+              className={`flex items-center w-full px-4 py-3 rounded-md transition-colors ${activeTab === 'overview' ? 'bg-ukra-gold text-ukra-navy font-bold' : 'hover:bg-gray-700 text-gray-300'}`}
+            >
+              <LayoutDashboard className="w-5 h-5 rtl:ml-3 ltr:mr-3" /> {t('dash_overview')}
+            </button>
+          )}
+
+          {/* All Users: Orders */}
           <button
             onClick={() => { setActiveTab('orders'); setSidebarOpen(false); }}
             className={`flex items-center w-full px-4 py-3 rounded-md transition-colors ${activeTab === 'orders' ? 'bg-ukra-gold text-ukra-navy font-bold' : 'hover:bg-gray-700 text-gray-300'}`}
           >
-            <FileText className="w-5 h-5 rtl:ml-3 ltr:mr-3" /> {t('dash_orders')}
+            <FileText className="w-5 h-5 rtl:ml-3 ltr:mr-3" /> 
+            {isClient ? 'My Requests' : t('dash_orders')}
           </button>
           
+          {/* Admin Only: Management */}
           {user.role === UserRole.OWNER && (
             <>
             <button className="flex items-center w-full px-4 py-3 rounded-md hover:bg-gray-700 text-gray-300">
@@ -128,7 +185,6 @@ export const Dashboard = () => {
       <main className="flex-1 overflow-y-auto">
         <header className="bg-white shadow-sm p-4 md:p-6 flex justify-between items-center sticky top-0 z-10">
           <div className="flex items-center gap-4">
-             {/* Gear Icon Trigger for Mobile */}
              <button 
                onClick={() => setSidebarOpen(true)}
                className="md:hidden text-ukra-navy hover:text-ukra-gold p-1"
@@ -137,7 +193,7 @@ export const Dashboard = () => {
              </button>
 
              <h1 className="text-xl md:text-2xl font-bold text-gray-800 capitalize">
-                {activeTab === 'overview' ? t('dash_overview') : t('dash_orders')}
+                {activeTab === 'overview' ? t('dash_overview') : (isClient ? 'My Requests' : t('dash_orders'))}
              </h1>
           </div>
 
@@ -149,17 +205,19 @@ export const Dashboard = () => {
                <Globe className="w-4 h-4" />
                {lang === 'ar' ? 'EN' : 'عربي'}
              </button>
-             <div className="relative">
-               <Bell className="w-6 h-6 text-gray-400 cursor-pointer" />
-               <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-             </div>
+             {isAdmin && (
+               <div className="relative">
+                 <Bell className="w-6 h-6 text-gray-400 cursor-pointer" />
+                 <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+               </div>
+             )}
           </div>
         </header>
 
         <div className="p-4 md:p-6">
           {loading ? (
              <div className="flex justify-center items-center h-64"><div className="animate-spin h-8 w-8 border-4 border-ukra-gold border-t-transparent rounded-full"></div></div>
-          ) : activeTab === 'overview' ? (
+          ) : (activeTab === 'overview' && isAdmin) ? (
             <div className="space-y-6">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -226,17 +284,19 @@ export const Dashboard = () => {
               </div>
             </div>
           ) : (
-            /* Orders Table */
+            /* Orders Table (Shared for Admin & Client) */
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
+                {orders.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">No requests found.</div>
+                ) : (
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_id')}</th>
                       <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_type')}</th>
-                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_client')}</th>
+                      {isAdmin && <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_client')}</th>}
                       <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_date')}</th>
-                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_amount')}</th>
                       <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_status')}</th>
                       <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_action')}</th>
                     </tr>
@@ -246,9 +306,8 @@ export const Dashboard = () => {
                       <tr key={order.id} className="hover:bg-gray-50 transition">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.id}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.type}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.client}</td>
+                        {isAdmin && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.client}</td>}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.date}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.amount}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                             ${order.status === 'Completed' ? 'bg-green-100 text-green-800' : 
@@ -262,13 +321,14 @@ export const Dashboard = () => {
                             onClick={() => handleViewDetails(order)}
                             className="flex items-center gap-1 text-ukra-gold hover:text-yellow-600 font-bold transition"
                           >
-                            <Eye className="w-4 h-4" /> View Details
+                            <Eye className="w-4 h-4" /> View
                           </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                )}
               </div>
             </div>
           )}

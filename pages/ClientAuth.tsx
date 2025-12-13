@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { registerClient, verifyClientOTP, loginClient } from '../services/apiService';
-import { Loader2, Mail, Lock, User as UserIcon, Phone, ArrowRight, CheckCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, User as UserIcon, Phone, ArrowRight } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const ClientAuth = () => {
   const [mode, setMode] = useState<'login' | 'register' | 'otp'>('login');
   const [loading, setLoading] = useState(false);
   const { t, lang, dir } = useLanguage();
-  const { clientLoginContext } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   // Form Data
@@ -34,18 +34,20 @@ export const ClientAuth = () => {
     setLoading(false);
     
     if (res.success) {
-      clientLoginContext({
+      login({
         name: res.user.name,
         email: res.user.email,
-        role: UserRole.CLIENT
+        role: UserRole.CLIENT,
+        phone: res.user.phone
       });
-      navigate('/my-requests');
+      // Redirect to the unified dashboard
+      navigate('/dashboard');
     } else {
-      alert(res.message || (lang === 'ar' ? "فشل تسجيل الدخول، تأكد من البيانات" : "Login failed. Please check your credentials."));
+      alert(res.message || (lang === 'ar' ? "فشل تسجيل الدخول" : "Login failed"));
     }
   };
 
-  // 2. Handle Register (Send OTP)
+  // 2. Handle Register
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -54,8 +56,6 @@ export const ClientAuth = () => {
 
     if (res.success) {
       setMode('otp');
-      // Optional: Show success toast/alert
-      // alert(lang === 'ar' ? "تم إرسال رمز التحقق إلى بريدك الإلكتروني" : "OTP sent to your email");
     } else {
       alert(res.message || (lang === 'ar' ? "فشل التسجيل" : "Registration failed."));
     }
@@ -66,28 +66,22 @@ export const ClientAuth = () => {
     e.preventDefault();
     setLoading(true);
     
-    // We pass formData alongside OTP because the GAS script creates the user ONLY after OTP verification
-    // using the temporary data we stored or pass back. 
-    // The provided GAS script relies on us resending user data OR storing it in sheet temporarily.
-    // The provided GAS script 'handleVerify' uses 'data.fullName', 'data.phone' inside it to create row.
-    // So we MUST pass these fields again.
-    
     const res = await verifyClientOTP(formData.email, formData.otp, formData);
     setLoading(false);
 
     if (res.success) {
-      clientLoginContext({
+      login({
         name: res.user.name,
         email: res.user.email,
-        role: UserRole.CLIENT
+        role: UserRole.CLIENT,
+        phone: formData.phone
       });
-      navigate('/my-requests');
+      navigate('/dashboard');
     } else {
       alert(res.message || (lang === 'ar' ? "رمز التحقق غير صحيح" : "Invalid OTP Code"));
     }
   };
 
-  // Dynamic Styles based on direction
   const iconPos = dir === 'rtl' ? 'right-3' : 'left-3';
   const inputPad = dir === 'rtl' ? 'pr-10 pl-4' : 'pl-10 pr-4';
 

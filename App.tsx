@@ -9,20 +9,15 @@ import { FurnitureQuoteForm } from './components/Forms/FurnitureQuoteForm';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { ClientAuth } from './pages/ClientAuth';
-import { ClientOrders } from './pages/ClientOrders';
 import { Home } from './pages/Home';
 import { DesignRequest } from './pages/DesignRequest';
 import { FeasibilityStudy } from './pages/FeasibilityStudy';
 
-// Protected Route Wrapper for Admin
-const AdminRoute = ({ children }: { children: React.ReactElement }) => {
-  const { isAuthenticated, isAdmin } = useAuth();
-  return isAuthenticated && isAdmin ? children : <Navigate to="/admin-login" replace />;
-};
-
-// Protected Route for Client
-const ClientRoute = ({ children }: { children: React.ReactElement }) => {
+// Unified Protected Route
+const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
   const { isAuthenticated } = useAuth();
+  // Redirect to login if not authenticated
+  // We default to client-login for general access, admin-login is specific
   return isAuthenticated ? children : <Navigate to="/client-login" replace />;
 };
 
@@ -37,18 +32,19 @@ const AppContent = () => {
         <Route element={<Layout><DesignRequest /></Layout>} path="/design-request" />
         <Route element={<Layout><FurnitureQuoteForm /></Layout>} path="/furniture-quote" />
         <Route element={<Layout><FeasibilityStudy /></Layout>} path="/feasibility-study" />
+        
         <Route element={<Layout><Login /></Layout>} path="/admin-login" />
-        
-        {/* Client Auth Routes */}
         <Route element={<Layout><ClientAuth /></Layout>} path="/client-login" />
-        <Route element={<Layout><ClientRoute><ClientOrders /></ClientRoute></Layout>} path="/my-requests" />
         
-        {/* Admin Dashboard (No Layout) */}
+        {/* Unified Dashboard (Admin & Client) */}
         <Route path="/dashboard" element={
-          <AdminRoute>
+          <ProtectedRoute>
             <Dashboard />
-          </AdminRoute>
+          </ProtectedRoute>
         } />
+
+        {/* Redirect legacy /my-requests to dashboard */}
+        <Route path="/my-requests" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </>
   );
