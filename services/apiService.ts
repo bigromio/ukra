@@ -85,6 +85,38 @@ export const deleteClientAccount = async (email: string): Promise<any> => {
   return postData(API_AUTH, { action: 'delete_account', email });
 };
 
+// --- Order Files Management ---
+
+export const fetchOrderFiles = async (folderUrl: string): Promise<any> => {
+  return postData(API_AUTH, { action: 'get_order_files', folderUrl });
+};
+
+export const uploadOrderFile = async (
+  folderUrl: string, 
+  file: File, 
+  orderId: string, 
+  notifyEmail?: string,
+  uploaderName?: string
+): Promise<any> => {
+  const base64Full = await fileToBase64(file);
+  const base64 = base64Full.split(',')[1];
+  
+  return postData(API_AUTH, { 
+    action: 'upload_file', 
+    folderUrl, 
+    base64, 
+    fileName: file.name, 
+    mimeType: file.type,
+    orderId,
+    notifyEmail,
+    uploaderName
+  });
+};
+
+export const deleteOrderFile = async (fileId: string): Promise<any> => {
+  return postData(API_AUTH, { action: 'delete_file', fileId });
+};
+
 // --- Data Fetching ---
 
 // Fetches orders for a SPECIFIC client (Client View)

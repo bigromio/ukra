@@ -13,6 +13,15 @@ export interface User {
   phone?: string;
 }
 
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  url: string;
+  size?: number;
+  date?: string;
+}
+
 export interface ClientOrder {
   id: string;
   type: string;
