@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { UserRole, DashboardStats, OrderData } from '../types';
@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
-import { LayoutDashboard, LogOut, FileText, Settings, Users, Bell, Globe, Eye, Cog, User, Loader2 } from 'lucide-react';
+import { LayoutDashboard, LogOut, FileText, Settings, Users, Bell, Globe, Eye, Cog, User, Loader2, X } from 'lucide-react';
 
 const COLORS = ['#c5a059', '#1a2a3a', '#9ca3af'];
 
@@ -30,10 +30,23 @@ export const Dashboard = () => {
   const [selectedOrder, setSelectedOrder] = useState<OrderData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
+  // Notification State
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isClient) setActiveTab('orders');
     loadData();
+    
+    // Close notification dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [user]);
 
   const loadData = async () => {
@@ -85,6 +98,13 @@ export const Dashboard = () => {
     }
     setIsModalOpen(false);
   };
+
+  // Generate Notifications based on active orders
+  const notifications = orders.slice(0, 5).map(o => ({
+    id: o.id,
+    text: `${o.type} Request (${o.id}) is currently ${o.status}`,
+    time: o.date
+  }));
 
   if (!user) return <div>Access Denied</div>;
 
@@ -197,12 +217,41 @@ export const Dashboard = () => {
              <button onClick={toggleLang} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-sm font-bold text-ukra-navy transition">
                <Globe className="w-4 h-4" /> {lang === 'ar' ? 'EN' : 'عربي'}
              </button>
-             {isAdmin && (
-               <div className="relative">
-                 <Bell className="w-6 h-6 text-gray-400 cursor-pointer" />
-                 <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-               </div>
-             )}
+             
+             {/* Notification Bell with Dropdown */}
+             <div className="relative" ref={notifRef}>
+               <button 
+                 onClick={() => setIsNotifOpen(!isNotifOpen)}
+                 className="relative p-1 rounded-full hover:bg-gray-100 transition"
+               >
+                 <Bell className="w-6 h-6 text-gray-400" />
+                 {notifications.length > 0 && <span className="absolute top-0 right-0 h-3 w-3 bg-red-500 rounded-full"></span>}
+               </button>
+
+               {isNotifOpen && (
+                 <div className="absolute top-10 right-0 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+                    <div className="p-3 bg-ukra-navy text-white text-sm font-bold flex justify-between items-center">
+                       <span>Notifications</span>
+                       <span className="bg-ukra-gold text-ukra-navy px-2 rounded text-xs">{notifications.length}</span>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                       {notifications.length === 0 ? (
+                         <div className="p-4 text-center text-gray-400 text-sm">No new notifications</div>
+                       ) : (
+                         notifications.map((notif, idx) => (
+                           <div key={idx} className="p-3 border-b hover:bg-gray-50 transition cursor-pointer">
+                              <p className="text-sm font-semibold text-gray-800">{notif.text}</p>
+                              <p className="text-xs text-gray-400 mt-1">{notif.time}</p>
+                           </div>
+                         ))
+                       )}
+                    </div>
+                    <div className="p-2 text-center border-t bg-gray-50">
+                       <button className="text-xs text-ukra-navy font-bold hover:underline">View All</button>
+                    </div>
+                 </div>
+               )}
+             </div>
           </div>
         </header>
 

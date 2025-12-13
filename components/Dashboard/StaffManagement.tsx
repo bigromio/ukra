@@ -8,7 +8,7 @@ export const StaffManagement = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'staff' | 'clients'>('staff');
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
-  const [processing, setProcessing] = useState<string | null>(null); // Stores email of user currently being updated
+  const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -52,7 +52,7 @@ export const StaffManagement = () => {
     }
   };
 
-  // Filter lists
+  // Filter lists: Staff (Owner/Manager/Employee) vs Clients
   const staffMembers = users.filter(u => 
     u.role === UserRole.OWNER || u.role === UserRole.MANAGER || u.role === UserRole.EMPLOYEE
   );

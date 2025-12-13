@@ -14,15 +14,13 @@ export const GEOFENCE_TARGET = {
   radiusMeters: 500
 };
 
-// API Endpoints
-// Design Request App Script
-export const API_URL_DESIGN = "https://script.google.com/macros/s/AKfycby835J0oKVvdEIfrZB8iTGaeMxiU8G1s2GU4XAFqrnbEjfVtHXxA5ULp8Z2VwSf8Js5/exec";
-// User Auth & General Dashboard App Script
-export const API_URL_DASHBOARD = "https://script.google.com/macros/s/AKfycbzxH-3YxRJUI77iraSx1slLUGHkjNVfisR6v4sYY0BXx9SL2qwb0Ybcrgukmqk8Im3P8A/exec";
+// API Endpoints - Updated to the NEW Script URL
+const UNIFIED_API_URL = "https://script.google.com/macros/s/AKfycbyaOd_30KSbMf6q0ClLoTsIhjbIFihAA7ySb4vfJSANJ6zhx05dyFGwDbx2aBr_t6by7A/exec";
 
-// Placeholders for others until provided
-export const API_URL_FURNITURE = "https://script.google.com/macros/s/AKfycbx_placeholder_furniture/exec";
-export const API_URL_FEASIBILITY = "https://script.google.com/macros/s/AKfycbx_placeholder_feasibility/exec";
+export const API_URL_DASHBOARD = UNIFIED_API_URL;
+export const API_URL_DESIGN = UNIFIED_API_URL;
+export const API_URL_FURNITURE = UNIFIED_API_URL;
+export const API_URL_FEASIBILITY = UNIFIED_API_URL;
 
 // Mock Data for Dashboard when API fails
 export const MOCK_ORDERS: OrderData[] = [
@@ -40,64 +38,7 @@ export const MOCK_ORDERS: OrderData[] = [
       { id: '1', name: 'Velvet Armchair', quantity: 50, specs: 'Royal Blue, Gold legs', imageBase64: null },
       { id: '2', name: 'Marble Coffee Table', quantity: 25, specs: 'Carrara white, 120cm', imageBase64: null }
     ]
-  },
-  { 
-    id: 'ORD-002', 
-    type: 'Design', 
-    client: 'Private Villa - Al Hamra', 
-    date: '2023-10-24', 
-    status: 'In Progress', 
-    amount: 'N/A',
-    phone: '+966 55 987 6543',
-    email: 'client@gmail.com',
-    location: 'Al Hamra, Riyadh',
-    areaSize: '450',
-    scope: '2D Layout + 3D Render',
-    style: 'Neoclassic',
-    colors: 'Greige Luxury',
-    budget: 'Luxury / VIP',
-    images: ['https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=400']
-  },
-  { 
-    id: 'ORD-003', 
-    type: 'Feasibility', 
-    client: 'Downtown Mall', 
-    date: '2023-10-23', 
-    status: 'Completed', 
-    amount: '$5,000',
-    phone: '+966 54 111 2222',
-    email: 'investor@holding.com',
-    location: 'King Road, Jeddah',
-    projectType: 'Retail',
-    budget: '2,000,000 SAR',
-    areaSize: '1200'
-  },
-  { 
-    id: 'ORD-004', 
-    type: 'Furniture', 
-    client: 'Hilton Lobby', 
-    date: '2023-10-22', 
-    status: 'Pending', 
-    amount: '$12,000',
-    phone: '+966 56 333 4444',
-    email: 'manager@hilton.com',
-    items: [
-      { id: '1', name: 'Chandelier', quantity: 2, specs: 'Crystal, 3m drop', imageBase64: null }
-    ]
-  },
-  { 
-    id: 'ORD-005', 
-    type: 'Design', 
-    client: 'Penthouse A', 
-    date: '2023-10-20', 
-    status: 'Completed', 
-    amount: 'N/A',
-    phone: '+966 59 888 7777',
-    location: 'Marina Tower',
-    scope: 'Full Turnkey',
-    style: 'Modern Minimalist',
-    colors: 'Ocean Breeze'
-  },
+  }
 ];
 
 export const MOCK_STATS = {

@@ -34,15 +34,21 @@ const postData = async (url: string, payload: any): Promise<any> => {
 
     const text = await response.text();
     try {
-      return JSON.parse(text);
+      const json = JSON.parse(text);
+      // Helper for debugging: Log if operation was NOT successful
+      if (!json.success && payload.action.includes('delete')) {
+         console.error("Delete operation failed on server:", json.message);
+      }
+      return json;
     } catch (e) {
       console.error("Server returned non-JSON response:", text);
-      throw new Error("Invalid server response");
+      throw new Error("Invalid server response. Check console.");
     }
 
   } catch (error) {
     console.error(`Submission to [${url}] Failed:`, error);
-    return { success: false, message: "تعذر الاتصال بالخادم." }; 
+    // Return a structured error so the UI handles it
+    return { success: false, message: "Network Error: " + error }; 
   }
 };
 
@@ -76,6 +82,7 @@ export const updateClientProfile = async (oldEmail: string, updateData: any): Pr
 };
 
 export const deleteClientAccount = async (email: string): Promise<any> => {
+  console.log("Attempting to delete account for:", email);
   return postData(API_AUTH, { action: 'delete_account', email });
 };
 
@@ -139,6 +146,7 @@ export const addOrderNote = async (
 };
 
 export const deleteOrderFile = async (fileId: string, orderId: string, userName: string): Promise<any> => {
+  console.log("Attempting to delete file:", fileId);
   return postData(API_AUTH, { action: 'delete_file', fileId, orderId, userName });
 };
 
