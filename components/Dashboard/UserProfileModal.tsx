@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../../types';
 import { updateClientProfile, deleteClientAccount } from '../../services/apiService';
 import { useAuth } from '../../context/AuthContext';
-import { X, Save, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, Save, Trash2, AlertTriangle, Loader2, Shield } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -57,15 +57,24 @@ export const UserProfileModal: React.FC<Props> = ({ isOpen, onClose, user }) => 
   };
 
   const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to delete your account? This action is irreversible.")) {
-      setLoading(true);
+    // Double confirmation for safety
+    if (!window.confirm("Are you sure you want to delete your account?")) return;
+    if (!window.confirm("This action cannot be undone. All your data will be lost. Proceed?")) return;
+
+    setLoading(true);
+    try {
       const res = await deleteClientAccount(user.email || '');
       setLoading(false);
-      if (res.success) {
+      
+      if (res && res.success) {
+        alert("Your account has been deleted.");
         logout();
       } else {
-        alert("Failed to delete account.");
+        alert("Failed to delete account: " + (res?.message || "Unknown error"));
       }
+    } catch (e) {
+      setLoading(false);
+      alert("An error occurred while connecting to the server.");
     }
   };
 
@@ -75,7 +84,12 @@ export const UserProfileModal: React.FC<Props> = ({ isOpen, onClose, user }) => 
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
         
         <div className="flex justify-between items-center mb-6 border-b pb-4">
-          <h2 className="text-xl font-bold text-ukra-navy">Edit Profile</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-ukra-navy">Profile</h2>
+            <span className="bg-ukra-gold text-ukra-navy text-xs font-bold px-2 py-0.5 rounded uppercase flex items-center gap-1">
+               <Shield className="w-3 h-3" /> {user.role}
+            </span>
+          </div>
           <button onClick={onClose}><X className="text-gray-400 hover:text-red-500" /></button>
         </div>
 

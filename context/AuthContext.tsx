@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { MOCK_USERS } from '../constants';
+import { fetchUserRole } from '../services/apiService';
 
 interface AuthContextType {
   user: User | null;
@@ -18,11 +19,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    // Check local storage for persisted session
-    const stored = localStorage.getItem('ukra_user_session');
-    if (stored) {
-      setUser(JSON.parse(stored));
-    }
+    const initAuth = async () => {
+      // 1. Load from local storage first for speed
+      const stored = localStorage.getItem('ukra_user_session');
+      if (stored) {
+        const parsedUser = JSON.parse(stored);
+        setUser(parsedUser);
+
+        // 2. Background check: Sync role with server
+        // Only if it's not a legacy mock admin (who has no email usually, or we skip for them)
+        if (parsedUser.email && !MOCK_USERS[parsedUser.username]) {
+           try {
+             const res = await fetchUserRole(parsedUser.email);
+             if (res && res.success) {
+                // If role changed in sheet, update it here
+                if (res.role !== parsedUser.role || res.name !== parsedUser.name) {
+                  const updatedUser = { 
+                    ...parsedUser, 
+                    role: res.role as UserRole,
+                    name: res.name || parsedUser.name,
+                    phone: res.phone || parsedUser.phone
+                  };
+                  setUser(updatedUser);
+                  localStorage.setItem('ukra_user_session', JSON.stringify(updatedUser));
+                  console.log("User Profile Synced with Server:", updatedUser.role);
+                }
+             }
+           } catch (e) {
+             console.warn("Failed to sync user profile with server (offline?)");
+           }
+        }
+      }
+    };
+
+    initAuth();
   }, []);
 
   // Unified Login Function

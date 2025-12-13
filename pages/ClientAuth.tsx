@@ -34,10 +34,13 @@ export const ClientAuth = () => {
     setLoading(false);
     
     if (res.success) {
+      // FIX: Use the role coming from the server, fallback to CLIENT only if undefined
+      const serverRole = res.user.role ? (res.user.role as UserRole) : UserRole.CLIENT;
+      
       login({
         name: res.user.name,
         email: res.user.email,
-        role: UserRole.CLIENT,
+        role: serverRole, 
         phone: res.user.phone
       });
       // Redirect to the unified dashboard
@@ -73,7 +76,7 @@ export const ClientAuth = () => {
       login({
         name: res.user.name,
         email: res.user.email,
-        role: UserRole.CLIENT,
+        role: UserRole.CLIENT, // Newly registered users are always Clients initially
         phone: formData.phone
       });
       navigate('/dashboard');

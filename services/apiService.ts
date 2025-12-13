@@ -71,6 +71,11 @@ export const loginClient = async (email: string, password: string): Promise<any>
   return postData(API_AUTH, { action: 'login', email, password });
 };
 
+// Sync Role
+export const fetchUserRole = async (email: string): Promise<any> => {
+  return postData(API_AUTH, { action: 'get_user_role', email });
+};
+
 // New Profile Functions
 export const updateClientProfile = async (oldEmail: string, updateData: any): Promise<any> => {
   return postData(API_AUTH, { action: 'update_profile', oldEmail, ...updateData });
