@@ -64,6 +64,7 @@ export const Navbar = () => {
                     <span className="absolute bottom-[-5px] left-0 w-0 h-[2px] bg-ukra-gold transition-all duration-300 group-hover:w-full"></span>
                   </a>
                 ))}
+                <Link to="/furniture-request" className="font-bold text-sm hover:text-ukra-gold transition-colors">تأثيث فندقي</Link>
                 <Link to="/design-request" className="font-bold text-sm hover:text-ukra-gold transition-colors">{t('btn_req_design')}</Link>
               </div>
               
@@ -131,6 +132,7 @@ export const Navbar = () => {
              )}
            
              <a href="#hero" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_home')}</a>
+             <Link to="/furniture-request" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">تأثيث فندقي</Link>
              <a href="#supplies" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_supplies')}</a>
              <a href="#design" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_design')}</a>
              <a href="#development" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_projects')}</a>
@@ -215,6 +217,7 @@ export const Footer = () => {
           </h4>
           <ul className="space-y-3 text-sm">
              <li><a href="#hero" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('nav_home')}</a></li>
+             <li><Link to="/furniture-request" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">تأثيث فندقي</Link></li>
              <li><Link to="/design-request" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('btn_req_design')}</Link></li>
              <li><a href="https://ukrastore.com" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('footer_store')}</a></li>
              <li><a href="#" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('footer_privacy')}</a></li>

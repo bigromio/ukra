@@ -12,13 +12,14 @@ import { ClientAuth } from './pages/ClientAuth';
 import { Home } from './pages/Home';
 import { DesignRequest } from './pages/DesignRequest';
 import { FeasibilityStudy } from './pages/FeasibilityStudy';
+import { FurnitureRequest } from './pages/FurnitureRequest';
 
 // Unified Protected Route
-const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   // Redirect to login if not authenticated
   // We default to client-login for general access, admin-login is specific
-  return isAuthenticated ? children : <Navigate to="/client-login" replace />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/client-login" replace />;
 };
 
 const AppContent = () => {
@@ -30,6 +31,8 @@ const AppContent = () => {
         {/* Public Routes with Layout */}
         <Route element={<Layout><Home /></Layout>} path="/" />
         <Route element={<Layout><DesignRequest /></Layout>} path="/design-request" />
+        {/* Updated: Use new FurnitureRequest page instead of basic form if preferred, keeping old route name for compatibility or adding new one */}
+        <Route element={<Layout><FurnitureRequest /></Layout>} path="/furniture-request" />
         <Route element={<Layout><FurnitureQuoteForm /></Layout>} path="/furniture-quote" />
         <Route element={<Layout><FeasibilityStudy /></Layout>} path="/feasibility-study" />
         
