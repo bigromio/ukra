@@ -19,6 +19,7 @@ export const UserProfileModal: React.FC<Props> = ({ isOpen, onClose, user }) => 
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   if (!isOpen) return null;
 
@@ -34,47 +35,54 @@ export const UserProfileModal: React.FC<Props> = ({ isOpen, onClose, user }) => 
     }
 
     setLoading(true);
-    const res = await updateClientProfile(user.email || '', {
-      newName: formData.name,
-      newEmail: formData.email,
-      newPhone: formData.phone,
-      newPassword: formData.password || undefined
-    });
-    setLoading(false);
+    try {
+      const res = await updateClientProfile(user.email || '', {
+        newName: formData.name,
+        newEmail: formData.email,
+        newPhone: formData.phone,
+        newPassword: formData.password || undefined
+      });
 
-    if (res.success) {
-      alert("Profile updated successfully. Please login again if you changed your email.");
-      if (formData.email !== user.email) {
-        logout();
+      if (res.success) {
+        alert("Profile updated successfully. Please login again if you changed your email.");
+        if (formData.email !== user.email) {
+          logout();
+        } else {
+          login({ ...user, name: formData.name, phone: formData.phone, email: formData.email });
+          onClose();
+        }
       } else {
-        // Update local session
-        login({ ...user, name: formData.name, phone: formData.phone, email: formData.email });
-        onClose();
+        alert("Failed to update: " + (res.message || "Unknown error"));
       }
-    } else {
-      alert("Failed to update: " + res.message);
+    } catch (error) {
+      alert("Error updating profile. Please check your connection.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    // Double confirmation for safety
-    if (!window.confirm("Are you sure you want to delete your account?")) return;
-    if (!window.confirm("This action cannot be undone. All your data will be lost. Proceed?")) return;
+    const confirm1 = window.confirm("Are you sure you want to delete your account? This will remove your access permanently.");
+    if (!confirm1) return;
+    
+    const confirm2 = window.confirm("Final Warning: This action CANNOT be undone. All your data will be erased.");
+    if (!confirm2) return;
 
-    setLoading(true);
+    setDeleteLoading(true);
     try {
       const res = await deleteClientAccount(user.email || '');
-      setLoading(false);
       
       if (res && res.success) {
-        alert("Your account has been deleted.");
+        alert("Account deleted successfully.");
         logout();
       } else {
-        alert("Failed to delete account: " + (res?.message || "Unknown error"));
+        alert("Failed to delete account. Server response: " + (res?.message || "No response"));
       }
-    } catch (e) {
-      setLoading(false);
-      alert("An error occurred while connecting to the server.");
+    } catch (e: any) {
+      console.error(e);
+      alert("An error occurred while connecting to the server: " + e.message);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -85,7 +93,7 @@ export const UserProfileModal: React.FC<Props> = ({ isOpen, onClose, user }) => 
         
         <div className="flex justify-between items-center mb-6 border-b pb-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-ukra-navy">Profile</h2>
+            <h2 className="text-xl font-bold text-ukra-navy">Profile Settings</h2>
             <span className="bg-ukra-gold text-ukra-navy text-xs font-bold px-2 py-0.5 rounded uppercase flex items-center gap-1">
                <Shield className="w-3 h-3" /> {user.role}
             </span>
@@ -96,30 +104,39 @@ export const UserProfileModal: React.FC<Props> = ({ isOpen, onClose, user }) => 
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
-            <input name="name" value={formData.name} onChange={handleChange} className="w-full p-2 border rounded" />
+            <input name="name" value={formData.name} onChange={handleChange} className="w-full p-2 border rounded focus:ring-ukra-gold focus:border-ukra-gold" />
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Phone</label>
-            <input name="phone" value={formData.phone} onChange={handleChange} className="w-full p-2 border rounded" />
+            <input name="phone" value={formData.phone} onChange={handleChange} className="w-full p-2 border rounded focus:ring-ukra-gold focus:border-ukra-gold" />
           </div>
           <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
              <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
                 Email <AlertTriangle className="w-4 h-4 text-yellow-600" />
              </label>
-             <input name="email" value={formData.email} onChange={handleChange} className="w-full p-2 border rounded" />
+             <input name="email" value={formData.email} onChange={handleChange} className="w-full p-2 border rounded focus:ring-ukra-gold focus:border-ukra-gold" />
              <p className="text-xs text-yellow-700 mt-1">Changing email may unlink existing projects.</p>
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">New Password (Optional)</label>
-            <input name="password" type="password" placeholder="Leave blank to keep current" onChange={handleChange} className="w-full p-2 border rounded" />
+            <input name="password" type="password" placeholder="Leave blank to keep current" onChange={handleChange} className="w-full p-2 border rounded focus:ring-ukra-gold focus:border-ukra-gold" />
           </div>
         </div>
 
         <div className="mt-8 flex gap-3">
-          <button onClick={handleDelete} className="px-4 py-2 border border-red-200 text-red-600 rounded hover:bg-red-50 flex items-center gap-2">
-             <Trash2 className="w-4 h-4" /> Delete
+          <button 
+            onClick={handleDelete} 
+            disabled={deleteLoading || loading}
+            className="px-4 py-2 border border-red-200 text-red-600 rounded hover:bg-red-50 flex items-center gap-2 disabled:opacity-50"
+          >
+             {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} 
+             Delete Account
           </button>
-          <button onClick={handleUpdate} disabled={loading} className="flex-1 bg-ukra-navy text-white rounded hover:bg-opacity-90 flex items-center justify-center gap-2 py-2">
+          <button 
+            onClick={handleUpdate} 
+            disabled={loading || deleteLoading} 
+            className="flex-1 bg-ukra-navy text-white rounded hover:bg-opacity-90 flex items-center justify-center gap-2 py-2 disabled:opacity-50"
+          >
              {loading ? <Loader2 className="animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
           </button>
         </div>

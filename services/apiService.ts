@@ -79,6 +79,21 @@ export const deleteClientAccount = async (email: string): Promise<any> => {
   return postData(API_AUTH, { action: 'delete_account', email });
 };
 
+// --- Admin User Management (New) ---
+
+export const fetchAllUsers = async (): Promise<any> => {
+  return postData(API_AUTH, { action: 'get_all_users' });
+};
+
+export const adminUpdateUserRole = async (targetEmail: string, newRole: string): Promise<any> => {
+  return postData(API_AUTH, { action: 'admin_update_user', targetEmail, newRole });
+};
+
+export const adminDeleteUser = async (targetEmail: string): Promise<any> => {
+  return postData(API_AUTH, { action: 'admin_delete_user', targetEmail });
+};
+
+
 // --- Order Files & Notes Management ---
 
 // Fetches both files and logs (notes)

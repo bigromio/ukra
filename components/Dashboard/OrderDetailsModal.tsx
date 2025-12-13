@@ -20,6 +20,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
   const [logs, setLogs] = useState<OrderLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState<string>('');
   const [noteInput, setNoteInput] = useState('');
   const [previewFile, setPreviewFile] = useState<DriveFile | null>(null);
@@ -27,9 +28,10 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
   const { user } = useAuth();
   
   // Permissions Logic
-  const canUpload = true; // Everyone (Client, Employee, Manager, Owner) can upload
-  const canDelete = user?.role === UserRole.OWNER || user?.role === UserRole.MANAGER; // Only Owner/Manager can delete
-  const canAddNote = true; // Everyone can add notes
+  // Ensure roles are matched case-insensitively if needed, but Enum is strict
+  const canUpload = true; 
+  const canDelete = user?.role === UserRole.OWNER || user?.role === UserRole.MANAGER;
+  const canAddNote = true;
 
   useEffect(() => {
     if (isOpen && order) {
@@ -56,7 +58,6 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
     if (!file || !order?.driveFolderUrl || !user) return;
 
     setUploading(true);
-    // Determine the Client Email to notify (if the uploader is NOT the client)
     const clientEmailToNotify = (user.email !== order.email) ? order.email : undefined;
 
     const res = await uploadOrderFile(
@@ -69,21 +70,28 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
     setUploading(false);
 
     if (res.success) {
-      loadDetails(); // Refresh list to show new file and log
+      loadDetails(); 
     } else {
-      alert("Upload failed: " + res.message);
+      alert("Upload failed: " + (res.message || "Unknown error"));
     }
   };
 
   const handleFileDelete = async (fileId: string) => {
     if (!canDelete) return;
-    if (!window.confirm("Are you sure you want to delete this file? This action is logged.")) return;
+    if (!window.confirm("Are you sure you want to delete this file?")) return;
     
-    const res = await deleteOrderFile(fileId, order?.id || '', user?.name || 'Admin');
-    if (res.success) {
-      setFiles(prev => prev.filter(f => f.id !== fileId));
-    } else {
-      alert("Delete failed.");
+    setDeletingId(fileId);
+    try {
+      const res = await deleteOrderFile(fileId, order?.id || '', user?.name || 'Admin');
+      if (res.success) {
+        setFiles(prev => prev.filter(f => f.id !== fileId));
+      } else {
+        alert("Delete failed: " + (res.message || "Server returned error"));
+      }
+    } catch (e: any) {
+      alert("Connection error: " + e.message);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -100,7 +108,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
       setNoteInput('');
       loadDetails();
     } else {
-      alert("Failed to send note");
+      alert("Failed to send note: " + (res.message || "Unknown error"));
     }
   };
 
@@ -211,7 +219,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
                 </div>
               ) : (
                 <>
-                  {/* Upload Area (Visible to All) */}
+                  {/* Upload Area */}
                   {canUpload && (
                     <div className="mb-6">
                       <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
@@ -239,8 +247,10 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {files.map(file => {
                         const isImage = file.mimeType.includes('image');
+                        const isDeleting = deletingId === file.id;
+                        
                         return (
-                          <div key={file.id} className="group relative bg-white border rounded-lg p-3 hover:shadow-md transition">
+                          <div key={file.id} className={`group relative bg-white border rounded-lg p-3 hover:shadow-md transition ${isDeleting ? 'opacity-50' : ''}`}>
                              <div 
                                className="aspect-square bg-gray-100 rounded-md mb-2 flex items-center justify-center overflow-hidden cursor-pointer"
                                onClick={() => setPreviewFile(file)}
@@ -268,8 +278,9 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
                                    onClick={() => handleFileDelete(file.id)} 
                                    className="text-gray-300 hover:text-red-600 p-1"
                                    title="Delete File (Admin Only)"
+                                   disabled={isDeleting}
                                  >
-                                   <Trash2 className="w-4 h-4" />
+                                   {isDeleting ? <Loader2 className="w-4 h-4 animate-spin text-red-600" /> : <Trash2 className="w-4 h-4" />}
                                  </button>
                                )}
                              </div>

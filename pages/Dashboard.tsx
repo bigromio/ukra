@@ -6,11 +6,12 @@ import { fetchClientOrders, fetchAllOrders } from '../services/apiService';
 import { MOCK_STATS, MOCK_ORDERS } from '../constants';
 import { OrderDetailsModal } from '../components/Dashboard/OrderDetailsModal';
 import { UserProfileModal } from '../components/Dashboard/UserProfileModal';
+import { StaffManagement } from '../components/Dashboard/StaffManagement';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
-import { LayoutDashboard, LogOut, FileText, Settings, Users, Bell, Globe, Eye, Cog, User } from 'lucide-react';
+import { LayoutDashboard, LogOut, FileText, Settings, Users, Bell, Globe, Eye, Cog, User, Loader2 } from 'lucide-react';
 
 const COLORS = ['#c5a059', '#1a2a3a', '#9ca3af'];
 
@@ -18,7 +19,8 @@ export const Dashboard = () => {
   const { user, logout, isClient, isAdmin } = useAuth();
   const { t, dir, toggleLang, lang } = useLanguage();
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders'>(isClient ? 'orders' : 'overview');
+  // Tabs: overview, orders, staff
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'staff'>(isClient ? 'orders' : 'overview');
   
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [orders, setOrders] = useState<OrderData[]>([]);
@@ -154,15 +156,20 @@ export const Dashboard = () => {
             {isClient ? 'My Requests' : t('dash_orders')}
           </button>
           
-          {user.role === UserRole.OWNER && (
-            <>
-            <button className="flex items-center w-full px-4 py-3 rounded-md hover:bg-gray-700 text-gray-300">
+          {/* Staff Management - Only Owner/Manager */}
+          {(user.role === UserRole.OWNER || user.role === UserRole.MANAGER) && (
+            <button 
+              onClick={() => { setActiveTab('staff'); setSidebarOpen(false); }}
+              className={`flex items-center w-full px-4 py-3 rounded-md transition-colors ${activeTab === 'staff' ? 'bg-ukra-gold text-ukra-navy font-bold' : 'hover:bg-gray-700 text-gray-300'}`}
+            >
               <Users className="w-5 h-5 rtl:ml-3 ltr:mr-3" /> {t('dash_staff')}
             </button>
-            <button className="flex items-center w-full px-4 py-3 rounded-md hover:bg-gray-700 text-gray-300">
-              <Settings className="w-5 h-5 rtl:ml-3 ltr:mr-3" /> {t('dash_settings')}
-            </button>
-            </>
+          )}
+
+          {(user.role === UserRole.OWNER) && (
+             <button className="flex items-center w-full px-4 py-3 rounded-md hover:bg-gray-700 text-gray-300">
+               <Settings className="w-5 h-5 rtl:ml-3 ltr:mr-3" /> {t('dash_settings')}
+             </button>
           )}
         </nav>
         <div className="p-4 border-t border-gray-700">
@@ -180,7 +187,9 @@ export const Dashboard = () => {
                <Cog className="w-6 h-6" />
              </button>
              <h1 className="text-xl md:text-2xl font-bold text-gray-800 capitalize">
-                {activeTab === 'overview' ? t('dash_overview') : (isClient ? 'My Requests' : t('dash_orders'))}
+                {activeTab === 'overview' ? t('dash_overview') : 
+                 activeTab === 'orders' ? (isClient ? 'My Requests' : t('dash_orders')) : 
+                 'Staff & Users'}
              </h1>
           </div>
 
@@ -198,65 +207,71 @@ export const Dashboard = () => {
         </header>
 
         <div className="p-4 md:p-6">
-          {loading ? (
-             <div className="flex justify-center items-center h-64"><div className="animate-spin h-8 w-8 border-4 border-ukra-gold border-t-transparent rounded-full"></div></div>
-          ) : (activeTab === 'overview' && isAdmin) ? (
+          {activeTab === 'staff' ? (
+             <StaffManagement />
+          ) : activeTab === 'overview' && isAdmin ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-ukra-gold">
-                  <p className="text-sm text-gray-500">{t('dash_total_req')}</p>
-                  <p className="text-3xl font-bold text-ukra-navy">{stats?.totalRequests}</p>
+              {loading ? <div className="text-center py-20"><Loader2 className="animate-spin w-8 h-8 mx-auto" /></div> : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-ukra-gold">
+                    <p className="text-sm text-gray-500">{t('dash_total_req')}</p>
+                    <p className="text-3xl font-bold text-ukra-navy">{stats?.totalRequests}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-blue-500">
+                    <p className="text-sm text-gray-500">{t('nav_supplies')}</p>
+                    <p className="text-3xl font-bold text-ukra-navy">{stats?.furnitureCount}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-purple-500">
+                    <p className="text-sm text-gray-500">{t('nav_design')}</p>
+                    <p className="text-3xl font-bold text-ukra-navy">{stats?.designCount}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-green-500">
+                    <p className="text-sm text-gray-500">{t('feat_feasibility')}</p>
+                    <p className="text-3xl font-bold text-ukra-navy">{stats?.feasibilityCount}</p>
+                  </div>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-blue-500">
-                  <p className="text-sm text-gray-500">{t('nav_supplies')}</p>
-                  <p className="text-3xl font-bold text-ukra-navy">{stats?.furnitureCount}</p>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-purple-500">
-                  <p className="text-sm text-gray-500">{t('nav_design')}</p>
-                  <p className="text-3xl font-bold text-ukra-navy">{stats?.designCount}</p>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-green-500">
-                  <p className="text-sm text-gray-500">{t('feat_feasibility')}</p>
-                  <p className="text-3xl font-bold text-ukra-navy">{stats?.feasibilityCount}</p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow-sm">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-700">{t('dash_monthly')}</h3>
-                  <div className="h-80" dir="ltr">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={stats?.monthlyData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="requests" fill="#c5a059" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-700">{t('dash_monthly')}</h3>
+                    <div className="h-80" dir="ltr">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={stats?.monthlyData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="requests" fill="#c5a059" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-700">{t('dash_dist')}</h3>
+                    <div className="h-80" dir="ltr">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} dataKey="value">
+                            {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow-sm">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-700">{t('dash_dist')}</h3>
-                  <div className="h-80" dir="ltr">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} dataKey="value">
-                          {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
+              </>
+              )}
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                {orders.length === 0 ? (
+                {orders.length === 0 && !loading ? (
                   <div className="p-8 text-center text-gray-500">No requests found.</div>
+                ) : loading ? (
+                   <div className="text-center py-20"><Loader2 className="animate-spin w-8 h-8 mx-auto" /></div>
                 ) : (
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
