@@ -12,9 +12,16 @@ interface OrderDetailsModalProps {
   onClose: () => void;
   order: OrderData | null;
   onNotify: (id: string, status: string) => void;
+  initialTab?: 'details' | 'files' | 'notes'; // New Prop
 }
 
-export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, order, onNotify }) => {
+export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  order, 
+  onNotify,
+  initialTab = 'details' // Default value
+}) => {
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'notes'>('details');
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [logs, setLogs] = useState<OrderLog[]>([]);
@@ -28,19 +35,19 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
   const { user } = useAuth();
   
   // Permissions Logic
-  // Ensure roles are matched case-insensitively if needed, but Enum is strict
   const canUpload = true; 
   const canDelete = user?.role === UserRole.OWNER || user?.role === UserRole.MANAGER;
   const canAddNote = true;
 
   useEffect(() => {
     if (isOpen && order) {
-      setActiveTab('details');
+      // Respect the initialTab prop when modal opens
+      setActiveTab(initialTab);
       if (order.driveFolderUrl) {
         loadDetails();
       }
     }
-  }, [isOpen, order]);
+  }, [isOpen, order, initialTab]); // Added initialTab to dependency array
 
   const loadDetails = async () => {
     if (!order?.driveFolderUrl) return;
@@ -86,6 +93,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, on
       if (res.success) {
         setFiles(prev => prev.filter(f => f.id !== fileId));
       } else {
+        // IMPROVED: Show specific server error
         alert("Delete failed: " + (res.message || "Server returned error"));
       }
     } catch (e: any) {

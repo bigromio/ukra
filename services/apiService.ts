@@ -97,6 +97,7 @@ export const adminUpdateUserRole = async (targetEmail: string, newRole: string):
 };
 
 export const adminDeleteUser = async (targetEmail: string): Promise<any> => {
+  console.log("Admin Delete Payload:", { action: 'admin_delete_user', targetEmail });
   return postData(API_AUTH, { action: 'admin_delete_user', targetEmail });
 };
 
@@ -146,7 +147,7 @@ export const addOrderNote = async (
 };
 
 export const deleteOrderFile = async (fileId: string, orderId: string, userName: string): Promise<any> => {
-  console.log("Attempting to delete file:", fileId);
+  console.log("Delete File Payload:", { action: 'delete_file', fileId, orderId, userName });
   return postData(API_AUTH, { action: 'delete_file', fileId, orderId, userName });
 };
 

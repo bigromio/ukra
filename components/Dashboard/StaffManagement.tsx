@@ -48,7 +48,8 @@ export const StaffManagement = () => {
     if (res.success) {
       setUsers(prev => prev.filter(u => u.email !== email));
     } else {
-      alert("Failed to delete user");
+      // Improved error alerting
+      alert("Failed to delete user: " + (res.message || "Unknown error"));
     }
   };
 

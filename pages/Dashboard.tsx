@@ -31,6 +31,9 @@ export const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
+  // Modal State to control initial tab
+  const [initialModalTab, setInitialModalTab] = useState<'details' | 'files' | 'notes'>('details');
+
   // Notification State
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -87,7 +90,18 @@ export const Dashboard = () => {
 
   const handleViewDetails = (order: OrderData) => {
     setSelectedOrder(order);
+    setInitialModalTab('details'); // Default to details
     setIsModalOpen(true);
+  };
+
+  const handleNotificationClick = (orderId: string) => {
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder) {
+      setSelectedOrder(targetOrder);
+      setInitialModalTab('notes'); // Jump directly to Notes
+      setIsModalOpen(true);
+      setIsNotifOpen(false); // Close dropdown
+    }
   };
 
   const handleNotifyClient = (id: string, newStatus: string) => {
@@ -117,6 +131,9 @@ export const Dashboard = () => {
   const sidebarTranslate = lang === 'ar' 
     ? (isSidebarOpen ? 'translate-x-0' : 'translate-x-full') 
     : (isSidebarOpen ? 'translate-x-0' : '-translate-x-full');
+
+  // Fix dropdown alignment based on language
+  const notifAlign = lang === 'ar' ? 'left-0' : 'right-0';
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden font-cairo" dir={dir}>
@@ -229,7 +246,7 @@ export const Dashboard = () => {
                </button>
 
                {isNotifOpen && (
-                 <div className="absolute top-10 right-0 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+                 <div className={`absolute top-10 ${notifAlign} w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden`}>
                     <div className="p-3 bg-ukra-navy text-white text-sm font-bold flex justify-between items-center">
                        <span>Notifications</span>
                        <span className="bg-ukra-gold text-ukra-navy px-2 rounded text-xs">{notifications.length}</span>
@@ -239,7 +256,11 @@ export const Dashboard = () => {
                          <div className="p-4 text-center text-gray-400 text-sm">No new notifications</div>
                        ) : (
                          notifications.map((notif, idx) => (
-                           <div key={idx} className="p-3 border-b hover:bg-gray-50 transition cursor-pointer">
+                           <div 
+                              key={idx} 
+                              onClick={() => handleNotificationClick(notif.id)} 
+                              className="p-3 border-b hover:bg-gray-50 transition cursor-pointer"
+                           >
                               <p className="text-sm font-semibold text-gray-800">{notif.text}</p>
                               <p className="text-xs text-gray-400 mt-1">{notif.time}</p>
                            </div>
@@ -370,6 +391,7 @@ export const Dashboard = () => {
         onClose={() => setIsModalOpen(false)} 
         order={selectedOrder}
         onNotify={handleNotifyClient}
+        initialTab={initialModalTab} // Passing the new prop
       />
       
       {user && (
