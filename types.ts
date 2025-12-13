@@ -2,12 +2,12 @@ export enum UserRole {
   OWNER = 'OWNER',
   MANAGER = 'MANAGER',
   EMPLOYEE = 'EMPLOYEE',
-  CLIENT = 'CLIENT', // Added Client Role
+  CLIENT = 'CLIENT',
 }
 
 export interface User {
-  username?: string; // For Admin
-  email?: string; // For Client
+  username?: string;
+  email?: string;
   role: UserRole;
   name: string;
   phone?: string;
@@ -22,6 +22,14 @@ export interface DriveFile {
   date?: string;
 }
 
+export interface OrderLog {
+  orderId: string;
+  timestamp: string;
+  user: string;
+  type: 'Note' | 'File' | 'Delete';
+  content: string;
+}
+
 export interface ClientOrder {
   id: string;
   type: string;
@@ -31,7 +39,7 @@ export interface ClientOrder {
   driveUrl?: string;
 }
 
-// ... existing types (FurnitureItem, etc.) remain unchanged ...
+// ... existing furniture types ...
 export interface FurnitureItem {
   id: string;
   name: string;

@@ -6,7 +6,6 @@ import {
 } from '../constants';
 import { FurnitureQuotePayload, FeasibilityPayload, DesignRequestPayload } from '../types';
 
-// Use the Dashboard/User endpoint for Auth
 const API_AUTH = API_URL_DASHBOARD; 
 
 export const fileToBase64 = (file: File): Promise<string> => {
@@ -18,9 +17,6 @@ export const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-/**
- * Robust POST request handler for Google Apps Script.
- */
 const postData = async (url: string, payload: any): Promise<any> => {
   try {
     const response = await fetch(url, {
@@ -71,12 +67,10 @@ export const loginClient = async (email: string, password: string): Promise<any>
   return postData(API_AUTH, { action: 'login', email, password });
 };
 
-// Sync Role
 export const fetchUserRole = async (email: string): Promise<any> => {
   return postData(API_AUTH, { action: 'get_user_role', email });
 };
 
-// New Profile Functions
 export const updateClientProfile = async (oldEmail: string, updateData: any): Promise<any> => {
   return postData(API_AUTH, { action: 'update_profile', oldEmail, ...updateData });
 };
@@ -85,17 +79,18 @@ export const deleteClientAccount = async (email: string): Promise<any> => {
   return postData(API_AUTH, { action: 'delete_account', email });
 };
 
-// --- Order Files Management ---
+// --- Order Files & Notes Management ---
 
-export const fetchOrderFiles = async (folderUrl: string): Promise<any> => {
-  return postData(API_AUTH, { action: 'get_order_files', folderUrl });
+// Fetches both files and logs (notes)
+export const fetchOrderDetails = async (folderUrl: string, orderId: string): Promise<any> => {
+  return postData(API_AUTH, { action: 'get_order_details', folderUrl, orderId });
 };
 
 export const uploadOrderFile = async (
   folderUrl: string, 
   file: File, 
   orderId: string, 
-  notifyEmail?: string,
+  clientEmail?: string, // To notify client
   uploaderName?: string
 ): Promise<any> => {
   const base64Full = await fileToBase64(file);
@@ -108,23 +103,36 @@ export const uploadOrderFile = async (
     fileName: file.name, 
     mimeType: file.type,
     orderId,
-    notifyEmail,
+    clientEmail,
     uploaderName
   });
 };
 
-export const deleteOrderFile = async (fileId: string): Promise<any> => {
-  return postData(API_AUTH, { action: 'delete_file', fileId });
+export const addOrderNote = async (
+  orderId: string,
+  content: string,
+  authorName: string,
+  clientEmail?: string
+): Promise<any> => {
+  return postData(API_AUTH, {
+    action: 'add_note',
+    orderId,
+    content,
+    authorName,
+    clientEmail
+  });
+};
+
+export const deleteOrderFile = async (fileId: string, orderId: string, userName: string): Promise<any> => {
+  return postData(API_AUTH, { action: 'delete_file', fileId, orderId, userName });
 };
 
 // --- Data Fetching ---
 
-// Fetches orders for a SPECIFIC client (Client View)
 export const fetchClientOrders = async (email: string): Promise<any> => {
   return postData(API_AUTH, { action: 'get_my_orders', email });
 };
 
-// Fetches ALL orders (Admin View) - sends empty email to trigger admin mode in GAS
 export const fetchAllOrders = async (): Promise<any> => {
   return postData(API_AUTH, { action: 'get_my_orders', email: null });
 };
