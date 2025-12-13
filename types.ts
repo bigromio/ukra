@@ -99,6 +99,7 @@ export interface OrderData {
   areaSize?: string;
   projectType?: string;
   images?: string[];
+  details?: string;
 }
 
 export interface DashboardStats {

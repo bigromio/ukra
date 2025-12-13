@@ -71,6 +71,15 @@ export const loginClient = async (email: string, password: string): Promise<any>
   return postData(API_AUTH, { action: 'login', email, password });
 };
 
+// New Profile Functions
+export const updateClientProfile = async (oldEmail: string, updateData: any): Promise<any> => {
+  return postData(API_AUTH, { action: 'update_profile', oldEmail, ...updateData });
+};
+
+export const deleteClientAccount = async (email: string): Promise<any> => {
+  return postData(API_AUTH, { action: 'delete_account', email });
+};
+
 // --- Data Fetching ---
 
 // Fetches orders for a SPECIFIC client (Client View)
@@ -100,7 +109,6 @@ export const submitFeasibilityStudy = async (payload: FeasibilityPayload): Promi
   return !!result && (result.status === 'success' || result.success === true);
 };
 
-// Deprecated in favor of direct fetchAllOrders calls inside Dashboard
 export const fetchDashboardData = async () => {
   return null;
 };

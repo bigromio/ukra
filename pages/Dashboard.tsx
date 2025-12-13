@@ -5,6 +5,7 @@ import { UserRole, DashboardStats, OrderData } from '../types';
 import { fetchClientOrders, fetchAllOrders } from '../services/apiService';
 import { MOCK_STATS, MOCK_ORDERS } from '../constants';
 import { OrderDetailsModal } from '../components/Dashboard/OrderDetailsModal';
+import { UserProfileModal } from '../components/Dashboard/UserProfileModal';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
@@ -17,7 +18,6 @@ export const Dashboard = () => {
   const { user, logout, isClient, isAdmin } = useAuth();
   const { t, dir, toggleLang, lang } = useLanguage();
   
-  // Clients land on 'orders', Admins land on 'overview'
   const [activeTab, setActiveTab] = useState<'overview' | 'orders'>(isClient ? 'orders' : 'overview');
   
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -27,11 +27,10 @@ export const Dashboard = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
-    // If client logs in, force 'orders' tab
     if (isClient) setActiveTab('orders');
-    
     loadData();
   }, [user]);
 
@@ -41,29 +40,24 @@ export const Dashboard = () => {
     
     try {
       if (isClient && user?.email) {
-        // Fetch only client specific orders
         const res = await fetchClientOrders(user.email);
         if (res.success) fetchedOrders = res.orders;
       } else if (isAdmin) {
-        // Fetch ALL orders
         const res = await fetchAllOrders();
         if (res.success) fetchedOrders = res.orders;
       }
 
-      // If API returns empty or fails (e.g. testing mode), use mocks ONLY for admins to see charts
       if (fetchedOrders.length === 0 && isAdmin) {
         setOrders(MOCK_ORDERS);
         setStats(MOCK_STATS);
       } else {
         setOrders(fetchedOrders);
-        // Calculate stats from real orders if we are admin
         if (isAdmin) {
              const calculatedStats: DashboardStats = {
                 totalRequests: fetchedOrders.length,
                 designCount: fetchedOrders.filter(o => o.type === 'Design').length,
                 furnitureCount: fetchedOrders.filter(o => o.type === 'Furniture').length,
                 feasibilityCount: fetchedOrders.filter(o => o.type === 'Feasibility').length,
-                // Simple mock monthly data based on filtered orders (would require date parsing logic)
                 monthlyData: MOCK_STATS.monthlyData 
              };
              setStats(calculatedStats);
@@ -82,15 +76,11 @@ export const Dashboard = () => {
   };
 
   const handleNotifyClient = (id: string, newStatus: string) => {
-    // Client cannot notify themselves in this context, only admins
     if (!isAdmin) return;
-
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus as any } : o));
     if (selectedOrder && selectedOrder.id === id) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus as any } : null);
     }
-    const clientName = orders.find(o => o.id === id)?.client || 'Client';
-    alert(`System updated: ${id} is now ${newStatus}`);
     setIsModalOpen(false);
   };
 
@@ -122,7 +112,7 @@ export const Dashboard = () => {
           <div>
             <h2 className="text-2xl font-bold text-ukra-gold">UKRA</h2>
             <p className="text-sm text-gray-400 mt-1">
-               {isClient ? 'Client Portal' : 'Admin Panel'}
+               {isClient ? 'Client Portal' : `${user.role} Panel`}
             </p>
           </div>
           <button className="md:hidden text-gray-400" onClick={() => setSidebarOpen(false)}>
@@ -130,8 +120,11 @@ export const Dashboard = () => {
           </button>
         </div>
         
-        {/* User Info Card (Sidebar) */}
-        <div className="p-4 bg-gray-800/50 mx-4 mt-4 rounded-lg flex items-center gap-3">
+        {/* User Info Card (Click to Edit) */}
+        <div 
+          onClick={() => setIsProfileOpen(true)}
+          className="p-4 bg-gray-800/50 mx-4 mt-4 rounded-lg flex items-center gap-3 cursor-pointer hover:bg-gray-800 transition border border-transparent hover:border-ukra-gold"
+        >
            <div className="bg-ukra-gold p-2 rounded-full text-ukra-navy">
              <User className="w-5 h-5" />
            </div>
@@ -139,11 +132,11 @@ export const Dashboard = () => {
              <p className="text-sm font-bold truncate">{user.name}</p>
              <p className="text-xs text-gray-400 truncate">{user.role}</p>
            </div>
+           <Cog className="w-4 h-4 text-gray-500 ml-auto" />
         </div>
 
         <nav className="flex-grow p-4 space-y-2 mt-4">
           
-          {/* Admin Only: Overview */}
           {isAdmin && (
             <button
               onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
@@ -153,7 +146,6 @@ export const Dashboard = () => {
             </button>
           )}
 
-          {/* All Users: Orders */}
           <button
             onClick={() => { setActiveTab('orders'); setSidebarOpen(false); }}
             className={`flex items-center w-full px-4 py-3 rounded-md transition-colors ${activeTab === 'orders' ? 'bg-ukra-gold text-ukra-navy font-bold' : 'hover:bg-gray-700 text-gray-300'}`}
@@ -162,7 +154,6 @@ export const Dashboard = () => {
             {isClient ? 'My Requests' : t('dash_orders')}
           </button>
           
-          {/* Admin Only: Management */}
           {user.role === UserRole.OWNER && (
             <>
             <button className="flex items-center w-full px-4 py-3 rounded-md hover:bg-gray-700 text-gray-300">
@@ -185,25 +176,17 @@ export const Dashboard = () => {
       <main className="flex-1 overflow-y-auto">
         <header className="bg-white shadow-sm p-4 md:p-6 flex justify-between items-center sticky top-0 z-10">
           <div className="flex items-center gap-4">
-             <button 
-               onClick={() => setSidebarOpen(true)}
-               className="md:hidden text-ukra-navy hover:text-ukra-gold p-1"
-             >
+             <button onClick={() => setSidebarOpen(true)} className="md:hidden text-ukra-navy hover:text-ukra-gold p-1">
                <Cog className="w-6 h-6" />
              </button>
-
              <h1 className="text-xl md:text-2xl font-bold text-gray-800 capitalize">
                 {activeTab === 'overview' ? t('dash_overview') : (isClient ? 'My Requests' : t('dash_orders'))}
              </h1>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-             <button 
-               onClick={toggleLang}
-               className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-sm font-bold text-ukra-navy transition"
-             >
-               <Globe className="w-4 h-4" />
-               {lang === 'ar' ? 'EN' : 'عربي'}
+             <button onClick={toggleLang} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-sm font-bold text-ukra-navy transition">
+               <Globe className="w-4 h-4" /> {lang === 'ar' ? 'EN' : 'عربي'}
              </button>
              {isAdmin && (
                <div className="relative">
@@ -219,7 +202,6 @@ export const Dashboard = () => {
              <div className="flex justify-center items-center h-64"><div className="animate-spin h-8 w-8 border-4 border-ukra-gold border-t-transparent rounded-full"></div></div>
           ) : (activeTab === 'overview' && isAdmin) ? (
             <div className="space-y-6">
-              {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 rtl:border-l-0 rtl:border-r-4 border-ukra-gold">
                   <p className="text-sm text-gray-500">{t('dash_total_req')}</p>
@@ -239,7 +221,6 @@ export const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-lg shadow-sm">
                   <h3 className="text-lg font-semibold mb-4 text-gray-700">{t('dash_monthly')}</h3>
@@ -255,25 +236,13 @@ export const Dashboard = () => {
                     </ResponsiveContainer>
                   </div>
                 </div>
-
                 <div className="bg-white p-6 rounded-lg shadow-sm">
                   <h3 className="text-lg font-semibold mb-4 text-gray-700">{t('dash_dist')}</h3>
                   <div className="h-80" dir="ltr">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie
-                          data={pieData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {pieData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} dataKey="value">
+                          {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
                         </Pie>
                         <Tooltip />
                         <Legend />
@@ -284,7 +253,6 @@ export const Dashboard = () => {
               </div>
             </div>
           ) : (
-            /* Orders Table (Shared for Admin & Client) */
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 {orders.length === 0 ? (
@@ -293,12 +261,12 @@ export const Dashboard = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_id')}</th>
-                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_type')}</th>
-                      {isAdmin && <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_client')}</th>}
-                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_date')}</th>
-                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_status')}</th>
-                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('col_action')}</th>
+                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t('col_id')}</th>
+                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t('col_type')}</th>
+                      {isAdmin && <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t('col_client')}</th>}
+                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t('col_date')}</th>
+                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t('col_status')}</th>
+                      <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t('col_action')}</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -317,10 +285,7 @@ export const Dashboard = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button 
-                            onClick={() => handleViewDetails(order)}
-                            className="flex items-center gap-1 text-ukra-gold hover:text-yellow-600 font-bold transition"
-                          >
+                          <button onClick={() => handleViewDetails(order)} className="flex items-center gap-1 text-ukra-gold hover:text-yellow-600 font-bold transition">
                             <Eye className="w-4 h-4" /> View
                           </button>
                         </td>
@@ -335,13 +300,21 @@ export const Dashboard = () => {
         </div>
       </main>
 
-      {/* Detail Modal */}
+      {/* Modals */}
       <OrderDetailsModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         order={selectedOrder}
         onNotify={handleNotifyClient}
       />
+      
+      {user && (
+        <UserProfileModal 
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          user={user}
+        />
+      )}
     </div>
   );
 };
