@@ -13,6 +13,7 @@ import { Home } from './pages/Home';
 import { DesignRequest } from './pages/DesignRequest';
 import { FeasibilityStudy } from './pages/FeasibilityStudy';
 import { FurnitureRequest } from './pages/FurnitureRequest';
+import { WoodCatalog } from './pages/WoodCatalog';
 
 // Unified Protected Route
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -35,6 +36,9 @@ const AppContent = () => {
         <Route element={<Layout><FurnitureRequest /></Layout>} path="/furniture-request" />
         <Route element={<Layout><FurnitureQuoteForm /></Layout>} path="/furniture-quote" />
         <Route element={<Layout><FeasibilityStudy /></Layout>} path="/feasibility-study" />
+        
+        {/* New Wood Catalog Page */}
+        <Route element={<Layout><WoodCatalog /></Layout>} path="/wood-catalog" />
         
         <Route element={<Layout><Login /></Layout>} path="/admin-login" />
         <Route element={<Layout><ClientAuth /></Layout>} path="/client-login" />

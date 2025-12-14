@@ -180,3 +180,10 @@ html[dir="rtl"] .scroll-to-top { left: 30px; right: auto; }
 
 .scroll-to-top.show { opacity: 1; transform: translateY(0); }
 .scroll-to-top:hover { transform: translateY(-5px); background: #fff; }
+
+/* Swiper Fixes */
+.swiper-pagination-bullet-active { background-color: var(--accent-gold) !important; }
+.catalog-swiper-container .swiper-slide-shadow-left,
+.catalog-swiper-container .swiper-slide-shadow-right {
+  background-image: none !important; /* Remove default shadow for cleaner look if preferred */
+}

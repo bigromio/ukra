@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Hexagon, Lock, MapPin, ExternalLink, Phone, Mail, ArrowUp, User } from 'lucide-react';
@@ -19,10 +20,11 @@ export const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Check if we are on a transparent header page (Home) or standard page
-  const isHomePage = location.pathname === '/';
-  const headerClass = isHomePage && !scrolled 
-    ? 'bg-transparent text-white' 
+  // Check if we are on a transparent header page (Home or WoodCatalog) or standard page
+  const isTransparentHeaderPage = location.pathname === '/' || location.pathname === '/wood-catalog';
+  
+  const headerClass = isTransparentHeaderPage && !scrolled 
+    ? 'bg-transparent text-white shadow-none' 
     : 'bg-white/95 backdrop-blur shadow-sm text-ukra-navy';
 
   const navLinks = [
@@ -32,7 +34,7 @@ export const Navbar = () => {
     { name: t('nav_projects'), path: '/#development' },
   ];
 
-  const logoColor = isHomePage && !scrolled ? 'text-white' : 'text-ukra-navy';
+  const logoColor = isTransparentHeaderPage && !scrolled ? 'text-white' : 'text-ukra-navy';
 
   // Mobile Menu Logic
   const closeMenu = () => setIsOpen(false);
@@ -64,6 +66,10 @@ export const Navbar = () => {
                     <span className="absolute bottom-[-5px] left-0 w-0 h-[2px] bg-ukra-gold transition-all duration-300 group-hover:w-full"></span>
                   </a>
                 ))}
+                
+                {/* NEW Catalog Link */}
+                <Link to="/wood-catalog" className="font-bold text-sm hover:text-ukra-gold transition-colors text-ukra-gold">كتالوج الأخشاب</Link>
+                
                 <Link to="/furniture-request" className="font-bold text-sm hover:text-ukra-gold transition-colors">تأثيث فندقي</Link>
                 <Link to="/design-request" className="font-bold text-sm hover:text-ukra-gold transition-colors">{t('btn_req_design')}</Link>
               </div>
@@ -97,7 +103,7 @@ export const Navbar = () => {
                 onClick={() => setIsOpen(!isOpen)}
                 className="inline-flex items-center justify-center p-2 rounded-md hover:text-ukra-gold focus:outline-none"
               >
-                <Menu className="h-6 w-6" />
+                <Menu className={`h-6 w-6 ${logoColor}`} />
               </button>
             </div>
           </div>
@@ -132,6 +138,9 @@ export const Navbar = () => {
              )}
            
              <a href="#hero" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_home')}</a>
+             
+             <Link to="/wood-catalog" onClick={closeMenu} className="text-lg font-bold text-ukra-gold hover:text-ukra-navy transition bg-yellow-50 p-2 rounded">كتالوج الأخشاب</Link>
+             
              <Link to="/furniture-request" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">تأثيث فندقي</Link>
              <a href="#supplies" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_supplies')}</a>
              <a href="#design" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_design')}</a>
@@ -217,10 +226,10 @@ export const Footer = () => {
           </h4>
           <ul className="space-y-3 text-sm">
              <li><a href="#hero" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('nav_home')}</a></li>
+             <li><Link to="/wood-catalog" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">كتالوج الأخشاب</Link></li>
              <li><Link to="/furniture-request" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">تأثيث فندقي</Link></li>
              <li><Link to="/design-request" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('btn_req_design')}</Link></li>
              <li><a href="https://ukrastore.com" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('footer_store')}</a></li>
-             <li><a href="#" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('footer_privacy')}</a></li>
           </ul>
         </div>
 

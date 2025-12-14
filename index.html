@@ -7,6 +7,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&display=swap" rel="stylesheet">
+    
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -22,6 +26,15 @@
                 navy: '#1a2a3a',
                 dark: '#0f172a',
                 light: '#f8fafc',
+              }
+            },
+            animation: {
+              'marquee': 'marquee 25s linear infinite',
+            },
+            keyframes: {
+              marquee: {
+                '0%': { transform: 'translateX(100%)' },
+                '100%': { transform: 'translateX(-100%)' },
               }
             }
           }
@@ -41,7 +54,11 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react-router-dom": "https://esm.sh/react-router-dom@^7.10.1",
     "recharts": "https://esm.sh/recharts@^3.5.1",
-    "@google/genai": "https://esm.sh/@google/genai@^1.33.0"
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
+    "swiper": "https://esm.sh/swiper@10",
+    "swiper/react": "https://esm.sh/swiper@10/react",
+    "swiper/modules": "https://esm.sh/swiper@10/modules",
+    "swiper/": "https://esm.sh/swiper@^12.0.3/"
   }
 }
 </script>
