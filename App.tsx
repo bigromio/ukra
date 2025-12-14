@@ -15,7 +15,7 @@ import { FeasibilityStudy } from './pages/FeasibilityStudy';
 import { FurnitureRequest } from './pages/FurnitureRequest';
 
 // Unified Protected Route
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   // Redirect to login if not authenticated
   // We default to client-login for general access, admin-login is specific

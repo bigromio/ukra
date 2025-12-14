@@ -1,6 +1,6 @@
 // Service Worker for UKRA App
 
-const CACHE_NAME = 'ukra-v5-cache';
+const CACHE_NAME = 'ukra-v6-cache';
 const urlsToCache = [
   '/',
   '/index.html',

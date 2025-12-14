@@ -253,7 +253,7 @@ export const Footer = () => {
   );
 };
 
-export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { dir } = useLanguage();
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 font-cairo" dir={dir}>

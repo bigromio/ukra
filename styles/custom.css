@@ -1,7 +1,31 @@
 
-/* ==========================================================================
-   UKRA.SA | Main Stylesheet Ported to React
-   ========================================================================== */
+/* ... existing styles ... */
+
+/* New Utilities for Forms */
+.input-std {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background-color: #ffffff;
+    transition: 0.2s;
+    font-size: 14px;
+}
+.input-std:focus {
+    border-color: var(--accent-gold);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.1);
+}
+
+.label-std {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary-navy);
+    margin-bottom: 6px;
+}
+
+/* ... existing styles ... */
 
 :root {
     --bg-body: #F9F9F9;

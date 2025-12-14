@@ -5,66 +5,44 @@ export interface CatalogItem {
   category: 'furniture' | 'furnishing' | 'accessories' | 'appliances';
   subcategory: string;
   unit: string;
-  options?: string[]; // For wood types or sizes
+  options?: string[];
+  price: number; // Estimated price in SAR
 }
 
 export const FURNITURE_CATALOG: CatalogItem[] = [
-  // --- 1. Furniture (الأثاث الخشبي) ---
-  { id: 'f-headboard', name: 'ظهر سرير (Headboard) - خشب سادة', category: 'furniture', subcategory: 'غرف النوم', unit: 'm2', options: ['شيبورد ألماني', 'شيبورد إسباني', 'شيبورد تايلاندي', 'ميلامين وطني'] },
-  { id: 'f-bedbase-single', name: 'بوكس سرير - هيكل مقاس مفرد', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد' },
-  { id: 'f-bedbase-double', name: 'بوكس سرير - هيكل مقاس مزدوج', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد' },
-  { id: 'f-nightstand-s', name: 'كومودينو - مقاس صغير', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد' },
-  { id: 'f-nightstand-m', name: 'كومودينو - مقاس وسط', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد' },
-  { id: 'f-dresser', name: 'تسريحة - وحدة أدراج مع سطح', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد' },
-  { id: 'f-wardrobe-hinge', name: 'دولاب ملابس - أبواب خشبية (دلف)', category: 'furniture', subcategory: 'الدواليب', unit: 'm2' },
-  { id: 'f-wardrobe-slide', name: 'دولاب ملابس - أبواب خشبية (سحاب)', category: 'furniture', subcategory: 'الدواليب', unit: 'm2' },
-  { id: 'f-luggage', name: 'وحدة تخزين أحذية / حقائب', category: 'furniture', subcategory: 'الدواليب', unit: 'عدد' },
-  { id: 'f-dining-table', name: 'طاولة طعام (سطح خشب + قاعدة)', category: 'furniture', subcategory: 'غرفة الطعام', unit: 'عدد' },
-  { id: 'f-coffee-corner', name: 'كوفي كورنر (علوي + سفلي)', category: 'furniture', subcategory: 'الضيافة', unit: 'm2' },
-  { id: 'f-reception', name: 'كاونتر استقبال (Reception Desk)', category: 'furniture', subcategory: 'الاستقبال', unit: 'm2' },
-  { id: 'f-coffee-table', name: 'طاولة وسط (Coffee Table)', category: 'furniture', subcategory: 'الضيافة', unit: 'عدد' },
-  { id: 'f-side-table', name: 'طاولة جانبية (Side Table)', category: 'furniture', subcategory: 'الضيافة', unit: 'عدد' },
-  { id: 'f-office-desk', name: 'مكتب موظف / مدير', category: 'furniture', subcategory: 'المكاتب', unit: 'عدد' },
-  { id: 'f-meeting-table', name: 'طاولة اجتماعات', category: 'furniture', subcategory: 'المكاتب', unit: 'm2' },
-  { id: 'f-kitchen-low', name: 'مطبخ تحضيري - خزائن سفلية', category: 'furniture', subcategory: 'المطابخ', unit: 'm2' },
-  { id: 'f-kitchen-high', name: 'مطبخ تحضيري - خزائن علوية', category: 'furniture', subcategory: 'المطابخ', unit: 'm2' },
-  { id: 'f-vanity', name: 'وحدة مغسلة (Vanity) - خشب مقاوم', category: 'furniture', subcategory: 'الحمامات', unit: 'm2' },
-  { id: 'f-cladding', name: 'تكسيات جدارية (Wall Cladding)', category: 'furniture', subcategory: 'الديكور', unit: 'm2' },
-  { id: 'f-door-leaf', name: 'باب خشبي داخلي (درفة فقط)', category: 'furniture', subcategory: 'الأبواب', unit: 'عدد' },
-  { id: 'f-armchair', name: 'كرسي مفرد (Armchair)', category: 'furniture', subcategory: 'الأثاث المتحرك', unit: 'عدد' },
+  // --- 1. Furniture ---
+  { id: 'f-headboard', name: 'ظهر سرير (Headboard)', category: 'furniture', subcategory: 'غرف النوم', unit: 'm2', options: ['شيبورد ألماني', 'شيبورد إسباني', 'ميلامين وطني'], price: 450 },
+  { id: 'f-bedbase-single', name: 'بوكس سرير مفرد 120cm', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد', price: 600 },
+  { id: 'f-bedbase-double', name: 'بوكس سرير مزدوج 200cm', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد', price: 950 },
+  { id: 'f-nightstand', name: 'كومودينو (Nightstand)', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد', price: 350 },
+  { id: 'f-dresser', name: 'تسريحة مع مرآة', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد', price: 1200 },
+  { id: 'f-wardrobe', name: 'دولاب ملابس (المتر المربع)', category: 'furniture', subcategory: 'الدواليب', unit: 'm2', price: 850 },
+  { id: 'f-luggage', name: 'وحدة حقائب (Luggage Rack)', category: 'furniture', subcategory: 'غرف النوم', unit: 'عدد', price: 400 },
+  { id: 'f-desk-chair', name: 'كرسي مكتب', category: 'furniture', subcategory: 'المكاتب', unit: 'عدد', price: 450 },
+  { id: 'f-lounge-chair', name: 'كرسي استرخاء (Armchair)', category: 'furniture', subcategory: 'الجلوس', unit: 'عدد', price: 1100 },
+  { id: 'f-sofa-2', name: 'كنبة مقعدين', category: 'furniture', subcategory: 'الجلوس', unit: 'عدد', price: 2200 },
+  { id: 'f-coffee-table', name: 'طاولة وسط', category: 'furniture', subcategory: 'الجلوس', unit: 'عدد', price: 650 },
+  { id: 'f-reception-desk', name: 'كاونتر استقبال (المتر الطولي)', category: 'furniture', subcategory: 'الاستقبال', unit: 'ml', price: 1800 },
+  { id: 'f-restaurant-table', name: 'طاولة مطعم', category: 'furniture', subcategory: 'المطاعم', unit: 'عدد', price: 550 },
+  { id: 'f-restaurant-chair', name: 'كرسي مطعم', category: 'furniture', subcategory: 'المطاعم', unit: 'عدد', price: 350 },
+  { id: 'f-cladding-wood', name: 'تكسيات خشبية بديل خشب', category: 'furniture', subcategory: 'الديكور', unit: 'm2', price: 180 },
+  { id: 'f-cladding-marble', name: 'تكسيات بديل رخام', category: 'furniture', subcategory: 'الديكور', unit: 'm2', price: 140 },
 
-  // --- 2. Furnishings (المراتب والبياضات) ---
-  { id: 'l-mattress-lux-k', name: 'مرتبة فاخرة (Pocket Spring) 200x200', category: 'furnishing', subcategory: 'المراتب', unit: 'عدد' },
-  { id: 'l-mattress-med-k', name: 'مرتبة وسط (Pocket Spring) 200x200', category: 'furnishing', subcategory: 'المراتب', unit: 'عدد' },
-  { id: 'l-mattress-eco-k', name: 'مرتبة اقتصادي (Bonnel Spring) 200x200', category: 'furnishing', subcategory: 'المراتب', unit: 'عدد' },
-  { id: 'l-mattress-lux-s', name: 'مرتبة فاخرة (Pocket Spring) 120x200', category: 'furnishing', subcategory: 'المراتب', unit: 'عدد' },
-  
-  { id: 'l-sheet-k-300', name: 'شرشف فلات King (300 TC) مقلم', category: 'furnishing', subcategory: 'بياضات السرير', unit: 'عدد' },
-  { id: 'l-sheet-s-300', name: 'شرشف فلات Twin (300 TC) مقلم', category: 'furnishing', subcategory: 'بياضات السرير', unit: 'عدد' },
-  { id: 'l-duvet-k-300', name: 'كيس لحاف King (300 TC) مقلم', category: 'furnishing', subcategory: 'بياضات السرير', unit: 'عدد' },
-  { id: 'l-sheet-k-250', name: 'شرشف فلات King (250 TC) CVC', category: 'furnishing', subcategory: 'بياضات السرير', unit: 'عدد' },
-  
-  { id: 'l-pillow-microgel', name: 'مخدة نوم Microgel (بديل ريش)', category: 'furnishing', subcategory: 'الوسائد', unit: 'عدد' },
-  { id: 'l-pillow-fiber', name: 'مخدة نوم Fiber Ball (اقتصادية)', category: 'furnishing', subcategory: 'الوسائد', unit: 'عدد' },
-  { id: 'l-duvet-insert', name: 'حشوة لحاف (بديل ريش)', category: 'furnishing', subcategory: 'الوسائد', unit: 'عدد' },
+  // --- 2. Furnishings ---
+  { id: 'l-mattress-vip', name: 'مرتبة فندقية VIP (Pocket Spring)', category: 'furnishing', subcategory: 'المراتب', unit: 'عدد', price: 1800 },
+  { id: 'l-mattress-eco', name: 'مرتبة فندقية اقتصادية (Bonnel)', category: 'furnishing', subcategory: 'المراتب', unit: 'عدد', price: 850 },
+  { id: 'l-sheet-set', name: 'طقم بياضات سرير كامل (300TC)', category: 'furnishing', subcategory: 'البياضات', unit: 'طقم', price: 350 },
+  { id: 'l-duvet', name: 'حشوة لحاف (Microfiber)', category: 'furnishing', subcategory: 'البياضات', unit: 'عدد', price: 220 },
+  { id: 'l-pillow', name: 'مخدة نوم فندقية (1000g)', category: 'furnishing', subcategory: 'الوسائد', unit: 'عدد', price: 65 },
+  { id: 'l-towel-set', name: 'طقم مناشف (جسم+وجه+أرضية)', category: 'furnishing', subcategory: 'المناشف', unit: 'طقم', price: 120 },
+  { id: 'l-curtain', name: 'ستائر Blackout + Sheer (متر طولي)', category: 'furnishing', subcategory: 'الستائر', unit: 'ml', price: 450 },
 
-  { id: 'l-towel-body', name: 'منشفة جسم 650 GSM', category: 'furnishing', subcategory: 'المناشف', unit: 'عدد' },
-  { id: 'l-towel-face', name: 'منشفة وجه 600 GSM', category: 'furnishing', subcategory: 'المناشف', unit: 'عدد' },
-  { id: 'l-bath-mat', name: 'دعاسة حمام 800 GSM', category: 'furnishing', subcategory: 'المناشف', unit: 'عدد' },
-  { id: 'l-robe-waffle', name: 'روب حمام Waffle', category: 'furnishing', subcategory: 'المناشف', unit: 'عدد' },
-
-  // --- 3. Accessories & Appliances ---
-  { id: 'a-kettle-steel', name: 'غلاية 0.8L Steel (Strix)', category: 'appliances', subcategory: 'أجهزة الغرفة', unit: 'عدد' },
-  { id: 'a-kettle-plastic', name: 'غلاية 1.0L Plastic', category: 'appliances', subcategory: 'أجهزة الغرفة', unit: 'عدد' },
-  { id: 'a-safe-laptop', name: 'خزنة لابتوب 15 بوصة', category: 'appliances', subcategory: 'أجهزة الغرفة', unit: 'عدد' },
-  { id: 'a-minibar-glass', name: 'ثلاجة ميني بار 40L (باب زجاج)', category: 'appliances', subcategory: 'أجهزة الغرفة', unit: 'عدد' },
-  { id: 'a-hairdryer-wall', name: 'مجفف شعر مثبت بالجدار 1200W', category: 'appliances', subcategory: 'أجهزة الغرفة', unit: 'عدد' },
-  
-  { id: 'a-bin-pedal', name: 'سلة حمام ستيل 5L (Soft Close)', category: 'accessories', subcategory: 'سلات المهملات', unit: 'عدد' },
-  { id: 'a-bin-room-leather', name: 'سلة غرفة جلد مزدوجة', category: 'accessories', subcategory: 'سلات المهملات', unit: 'عدد' },
-  
-  { id: 'a-mirror-led', name: 'مرآة تكبير LED', category: 'accessories', subcategory: 'اكسسوارات الحمام', unit: 'عدد' },
-  { id: 'a-bath-set-resin', name: 'طقم حمام (Resin) مظهر حجري', category: 'accessories', subcategory: 'اكسسوارات الحمام', unit: 'طقم' },
-  { id: 'a-iron-board', name: 'طاولة كي قائمة (Free Standing)', category: 'accessories', subcategory: 'مستلزمات الكي', unit: 'عدد' },
-  { id: 'a-iron-steam', name: 'مكواة بخار Pro 2400W', category: 'accessories', subcategory: 'مستلزمات الكي', unit: 'عدد' }
+  // --- 3. Appliances & Accessories ---
+  { id: 'a-minibar', name: 'ثلاجة ميني بار 40 لتر', category: 'appliances', subcategory: 'الأجهزة', unit: 'عدد', price: 650 },
+  { id: 'a-safe', name: 'خزنة أرقام سرية', category: 'appliances', subcategory: 'الأجهزة', unit: 'عدد', price: 380 },
+  { id: 'a-kettle-tray', name: 'طقم غلاية مع صينية تقديم', category: 'appliances', subcategory: 'الأجهزة', unit: 'طقم', price: 280 },
+  { id: 'a-hairdryer', name: 'مجفف شعر جداري', category: 'appliances', subcategory: 'الأجهزة', unit: 'عدد', price: 120 },
+  { id: 'a-iron-center', name: 'مركز كي (مكواة + طاولة + حامل)', category: 'accessories', subcategory: 'الأدوات', unit: 'طقم', price: 450 },
+  { id: 'a-bath-acc', name: 'طقم اكسسوارات حمام (5 قطع)', category: 'accessories', subcategory: 'الأدوات', unit: 'طقم', price: 180 },
+  { id: 'a-bin', name: 'سلة مهملات مزدوجة (جلد)', category: 'accessories', subcategory: 'الأدوات', unit: 'عدد', price: 140 }
 ];

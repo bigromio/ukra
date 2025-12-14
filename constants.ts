@@ -14,13 +14,17 @@ export const GEOFENCE_TARGET = {
   radiusMeters: 500
 };
 
-// API Endpoints - Updated to the NEW Script URL
-const UNIFIED_API_URL = "https://script.google.com/macros/s/AKfycbyaOd_30KSbMf6q0ClLoTsIhjbIFihAA7ySb4vfJSANJ6zhx05dyFGwDbx2aBr_t6by7A/exec";
+// --- API ENDPOINTS ---
 
-export const API_URL_DASHBOARD = UNIFIED_API_URL;
-export const API_URL_DESIGN = UNIFIED_API_URL;
-export const API_URL_FURNITURE = UNIFIED_API_URL;
-export const API_URL_FEASIBILITY = UNIFIED_API_URL;
+// Main Dashboard/Auth Script
+export const API_URL_DASHBOARD = "https://script.google.com/macros/s/AKfycbwW5FOlYzVGG64L1rrTyAHvs-tPxz_aezxZgBg_D1J1ceYGVJL819jfz42ItllPq0vy/exec";
+
+// DEDICATED Design Request Script
+export const API_URL_DESIGN = "https://script.google.com/macros/s/AKfycbysybbF-j8lAbnG5dpPTluER2-QvsYo85XbOjE5QsVMn0_2sd-6m9PhD5y03Fc0resL/exec";
+
+// Other dedicated scripts (Fallbacks to dashboard if specific ones aren't provided yet)
+export const API_URL_FURNITURE = API_URL_DASHBOARD;
+export const API_URL_FEASIBILITY = API_URL_DASHBOARD;
 
 // Mock Data for Dashboard when API fails
 export const MOCK_ORDERS: OrderData[] = [

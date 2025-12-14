@@ -36,12 +36,20 @@ const postData = async (url: string, payload: any): Promise<any> => {
     try {
       const json = JSON.parse(text);
       // Helper for debugging: Log if operation was NOT successful
-      if (!json.success && payload.action.includes('delete')) {
+      if (!json.success && payload.action && payload.action.includes('delete')) {
          console.error("Delete operation failed on server:", json.message);
       }
       return json;
     } catch (e) {
       console.error("Server returned non-JSON response:", text);
+      // If the response is the specific JSON error string mentioned in the prompt, parse it manually
+      if (text.includes('Unknown Action')) {
+          try {
+             return JSON.parse(text);
+          } catch (err) {
+             throw new Error("Invalid server response. Check console.");
+          }
+      }
       throw new Error("Invalid server response. Check console.");
     }
 
@@ -164,17 +172,18 @@ export const fetchAllOrders = async (): Promise<any> => {
 // --- Form Submission ---
 
 export const submitDesignRequest = async (payload: DesignRequestPayload): Promise<boolean> => {
-  const result = await postData(API_URL_DESIGN, payload);
+  // Added action 'submit_design' to ensure the script knows what to do
+  const result = await postData(API_URL_DESIGN, { ...payload, action: 'submit_design' });
   return result && (result.status === 'success' || result.success === true);
 };
 
 export const submitFurnitureQuote = async (payload: FurnitureQuotePayload): Promise<boolean> => {
-  const result = await postData(API_URL_FURNITURE, payload);
+  const result = await postData(API_URL_FURNITURE, { ...payload, action: 'submit_furniture' });
   return !!result && (result.status === 'success' || result.success === true);
 };
 
 export const submitFeasibilityStudy = async (payload: FeasibilityPayload): Promise<boolean> => {
-  const result = await postData(API_URL_FEASIBILITY, payload);
+  const result = await postData(API_URL_FEASIBILITY, { ...payload, action: 'submit_feasibility' });
   return !!result && (result.status === 'success' || result.success === true);
 };
 
