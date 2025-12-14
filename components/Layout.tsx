@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Hexagon, Lock, MapPin, ExternalLink, Phone, Mail, ArrowUp, User } from 'lucide-react';
+import { Menu, X, Hexagon, Lock, MapPin, ExternalLink, Phone, Mail, ArrowUp, User, Calendar } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -71,7 +71,10 @@ export const Navbar = () => {
                 <Link to="/wood-catalog" className="font-bold text-sm hover:text-ukra-gold transition-colors text-ukra-gold">كتالوج الأخشاب</Link>
                 
                 <Link to="/furniture-request" className="font-bold text-sm hover:text-ukra-gold transition-colors">تأثيث فندقي</Link>
-                <Link to="/design-request" className="font-bold text-sm hover:text-ukra-gold transition-colors">{t('btn_req_design')}</Link>
+                
+                <Link to="/book-appointment" className="font-bold text-sm flex items-center gap-1 bg-ukra-gold text-white px-3 py-1 rounded-full hover:bg-white hover:text-ukra-navy transition">
+                   <Calendar className="w-3 h-3" /> {t('book_title')}
+                </Link>
               </div>
               
               <button 
@@ -140,6 +143,9 @@ export const Navbar = () => {
              <a href="#hero" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_home')}</a>
              
              <Link to="/wood-catalog" onClick={closeMenu} className="text-lg font-bold text-ukra-gold hover:text-ukra-navy transition bg-yellow-50 p-2 rounded">كتالوج الأخشاب</Link>
+             <Link to="/book-appointment" onClick={closeMenu} className="text-lg font-bold text-white bg-ukra-navy hover:bg-ukra-gold transition p-2 rounded flex items-center gap-2">
+                <Calendar className="w-5 h-5" /> {t('book_title')}
+             </Link>
              
              <Link to="/furniture-request" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">تأثيث فندقي</Link>
              <a href="#supplies" onClick={closeMenu} className="text-lg font-bold text-ukra-navy hover:text-ukra-gold transition">{t('nav_supplies')}</a>
@@ -227,6 +233,7 @@ export const Footer = () => {
           <ul className="space-y-3 text-sm">
              <li><a href="#hero" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('nav_home')}</a></li>
              <li><Link to="/wood-catalog" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">كتالوج الأخشاب</Link></li>
+             <li><Link to="/book-appointment" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('book_title')}</Link></li>
              <li><Link to="/furniture-request" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">تأثيث فندقي</Link></li>
              <li><Link to="/design-request" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('btn_req_design')}</Link></li>
              <li><a href="https://ukrastore.com" className="hover:text-ukra-gold transition flex items-center justify-center md:justify-start gap-2">{t('footer_store')}</a></li>
@@ -241,16 +248,16 @@ export const Footer = () => {
            </h4>
            <div className="h-40 bg-[#222] rounded-xl relative overflow-hidden border border-gray-700">
              <iframe 
-                src="https://maps.google.com/maps?q=Madinah&t=&z=13&ie=UTF8&iwloc=&output=embed" 
+                src="https://maps.google.com/maps?q=Prince+Mohammad+Bin+Abdulaziz+St,+Alalia,+Madinah&t=&z=14&ie=UTF8&iwloc=&output=embed" 
                 width="100%" 
                 height="100%" 
                 style={{border:0, filter: 'grayscale(100%) invert(90%)'}} 
                 allowFullScreen 
                 loading="lazy"
              ></iframe>
-             <a href="https://maps.app.goo.gl/your-link" target="_blank" rel="noreferrer" className="absolute inset-0 z-10"></a>
+             <a href="https://maps.app.goo.gl/DFDMbwSrfTkeawz98" target="_blank" rel="noreferrer" className="absolute inset-0 z-10"></a>
            </div>
-           <a href="https://maps.app.goo.gl/your-link" target="_blank" rel="noreferrer" className="text-ukra-gold text-sm inline-flex items-center justify-center md:justify-start gap-2 hover:underline">
+           <a href="https://maps.app.goo.gl/DFDMbwSrfTkeawz98" target="_blank" rel="noreferrer" className="text-ukra-gold text-sm inline-flex items-center justify-center md:justify-start gap-2 hover:underline">
              <MapPin className="w-4 h-4" /> {t('btn_map')} <ExternalLink className="w-3 h-3" />
            </a>
         </div>

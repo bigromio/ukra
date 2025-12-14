@@ -30,7 +30,7 @@ const PRODUCTS = [
 ];
 
 export const WoodCatalog = () => {
-  const { dir } = useLanguage();
+  const { t, dir } = useLanguage();
   const [selectedProduct, setSelectedProduct] = useState<typeof PRODUCTS[0] | null>(null);
 
   const scrollToCatalog = () => {
@@ -49,12 +49,12 @@ export const WoodCatalog = () => {
             UKRA <span className="text-ukra-gold">WOOD</span>
           </h1>
           <p className="text-xl md:text-2xl text-gray-200 mb-8 font-light">
-             خبراء في الألواح الديكورية والأسطح الخشبية
+             {t('wood_hero_sub')}
           </p>
           <p className="text-sm text-ukra-gold tracking-widest uppercase">Everything is possible</p>
           
           <button onClick={() => window.location.href='tel:+966569159938'} className="mt-8 px-8 py-3 bg-ukra-gold text-ukra-navy rounded-full font-bold hover:bg-white transition-all transform hover:scale-105 flex items-center gap-2 mx-auto">
-             <Phone className="w-5 h-5" /> اتصل بنا
+             <Phone className="w-5 h-5" /> {t('wood_call')}
           </button>
         </div>
 
@@ -69,7 +69,7 @@ export const WoodCatalog = () => {
         <div className="whitespace-nowrap animate-marquee flex gap-10">
           {[1,2,3,4].map(i => (
              <span key={i} className="text-lg md:text-xl font-light opacity-90 mx-10">
-                Transform your spaces and create trendy modern designs • Superior cutting case • Smooth and durable finish • Ideal for furniture
+                {t('wood_marquee')}
              </span>
           ))}
         </div>
@@ -80,10 +80,10 @@ export const WoodCatalog = () => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
              <h2 className="text-4xl font-black text-ukra-navy mb-4 relative inline-block">
-               مجموعتنا الفاخرة
+               {t('wood_catalog_title')}
                <span className="absolute -bottom-3 left-0 right-0 h-1 bg-ukra-gold mx-auto w-24"></span>
              </h2>
-             <p className="text-gray-500 mt-6">تصفح أحدث التشكيلات الحصرية</p>
+             <p className="text-gray-500 mt-6">{t('wood_catalog_sub')}</p>
           </div>
 
           <div className="catalog-swiper-container">
@@ -130,10 +130,10 @@ export const WoodCatalog = () => {
       <section className="py-20 px-4 bg-white relative">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
            {[
-             { icon: Droplets, title: "مقاوم للرطوبة", desc: "تجنب ملامسة الماء المباشرة، ألواحنا مصممة لتقليل الانتفاخ." },
-             { icon: Gem, title: "مقاوم للخدش", desc: "سطح متين وعملي يتحمل الاستخدام اليومي." },
-             { icon: Sparkles, title: "سهل التنظيف", desc: "عملي ومتعدد الاستخدامات وسهل التنظيف." },
-             { icon: Leaf, title: "صديق للبيئة", desc: "نستخدم أفضل خامات MDF الصديقة للبيئة." },
+             { icon: Droplets, title: t('wood_feat_moisture'), desc: t('wood_feat_moisture_desc') },
+             { icon: Gem, title: t('wood_feat_scratch'), desc: t('wood_feat_scratch_desc') },
+             { icon: Sparkles, title: t('wood_feat_clean'), desc: t('wood_feat_clean_desc') },
+             { icon: Leaf, title: t('wood_feat_eco'), desc: t('wood_feat_eco_desc') },
            ].map((feat, idx) => (
              <div key={idx} className="text-center p-8 rounded-2xl border border-gray-100 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 bg-gray-50/50 group">
                 <div className="w-20 h-20 mx-auto bg-white rounded-full flex items-center justify-center shadow-sm mb-6 group-hover:bg-ukra-navy transition-colors">

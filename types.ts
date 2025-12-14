@@ -1,3 +1,4 @@
+
 export enum UserRole {
   OWNER = 'OWNER',
   MANAGER = 'MANAGER',
@@ -48,12 +49,28 @@ export interface FurnitureItem {
   imageBase64: string | null;
 }
 
+// تحديث في ملف types.ts
 export interface FurnitureQuotePayload {
-  type: 'furniture';
-  items: FurnitureItem[];
-  contactName: string;
-  contactEmail: string;
-  timestamp: string;
+  lang: string;
+  type: 'Furniture Request';
+  client: {
+    name: string;
+    phone: string;
+    email: string;
+    source: string;
+  };
+  project: {
+    category: string;
+    type: string;
+    name: string;
+    woodType: string;
+    level: string;
+    style: string;
+    notes: string;
+    packages: string[];
+    details: string; // JSON string of spaces
+  };
+  files: { name: string; base64: string }[];
 }
 
 export interface FeasibilityPayload {
@@ -65,6 +82,17 @@ export interface FeasibilityPayload {
   contactName: string;
   contactEmail: string;
   timestamp?: string;
+}
+
+export interface BookingPayload {
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  date: string;
+  time: string;
+  reason: string;
+  timestamp: string;
 }
 
 export interface DesignImage {

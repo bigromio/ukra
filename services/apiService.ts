@@ -2,9 +2,10 @@ import {
   API_URL_DESIGN, 
   API_URL_FURNITURE, 
   API_URL_FEASIBILITY, 
-  API_URL_DASHBOARD 
+  API_URL_DASHBOARD,
+  API_URL_BOOKING
 } from '../constants';
-import { FurnitureQuotePayload, FeasibilityPayload, DesignRequestPayload } from '../types';
+import { FurnitureQuotePayload, FeasibilityPayload, DesignRequestPayload, BookingPayload } from '../types';
 
 const API_AUTH = API_URL_DASHBOARD; 
 
@@ -185,6 +186,13 @@ export const submitFurnitureQuote = async (payload: FurnitureQuotePayload): Prom
 export const submitFeasibilityStudy = async (payload: FeasibilityPayload): Promise<boolean> => {
   const result = await postData(API_URL_FEASIBILITY, { ...payload, action: 'submit_feasibility' });
   return !!result && (result.status === 'success' || result.success === true);
+};
+
+// New: Submit Booking
+export const submitBooking = async (payload: BookingPayload): Promise<any> => {
+  // We expect the script to return { success: true } or { success: false, message: 'Slot unavailable' }
+  const result = await postData(API_URL_BOOKING, { ...payload, action: 'book_appointment' });
+  return result;
 };
 
 export const fetchDashboardData = async () => {

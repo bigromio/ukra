@@ -8,6 +8,10 @@ export const translations = {
     nav_projects: "المشاريع",
     btn_req_design: "اطلب تصميمك",
     
+    // Global
+    address_full: "طريق الأمير محمد بن عبدالعزيز، العالية، المدينة المنورة",
+    work_hours: "السبت - الخميس: ٠٩:٠٠ ص - ١٠:٠٠ م",
+
     // Auth
     auth_welcome: "مرحباً بعودتك",
     auth_create: "إنشاء حساب جديد",
@@ -58,6 +62,72 @@ export const translations = {
     feat_feasibility: "دراسات جدوى",
     feat_retail_fitout: "تجهيز معارض",
     development_btn: "ابدأ مشروعك",
+
+    // Wood Catalog
+    wood_hero_sub: "خبراء في الألواح الديكورية والأسطح الخشبية",
+    wood_call: "اتصل بنا",
+    wood_marquee: "حول مساحاتك وابتكر تصاميم عصرية • قص فائق الدقة • سطح ناعم ومتين • مثالي للأثاث",
+    wood_catalog_title: "مجموعتنا الفاخرة",
+    wood_catalog_sub: "تصفح أحدث التشكيلات الحصرية",
+    wood_feat_moisture: "مقاوم للرطوبة",
+    wood_feat_moisture_desc: "تجنب ملامسة الماء المباشرة، ألواحنا مصممة لتقليل الانتفاخ.",
+    wood_feat_scratch: "مقاوم للخدش",
+    wood_feat_scratch_desc: "سطح متين وعملي يتحمل الاستخدام اليومي.",
+    wood_feat_clean: "سهل التنظيف",
+    wood_feat_clean_desc: "عملي ومتعدد الاستخدامات وسهل التنظيف.",
+    wood_feat_eco: "صديق للبيئة",
+    wood_feat_eco_desc: "نستخدم أفضل خامات MDF الصديقة للبيئة.",
+
+    // Furniture Request (Smart Form)
+    furn_title: "استمارة التأثيث الذكية",
+    furn_desc: "نظام تسعير فوري مدعوم بالذكاء الاصطناعي",
+    step_cat: "النوع",
+    step_det: "المساحات",
+    step_spec: "المواصفات",
+    step_rev: "العرض",
+    
+    furn_sec_1: "1. بيانات العميل ونوع المشروع",
+    furn_sec_2: "2. تفاصيل المساحات",
+    furn_sec_3: "3. المواصفات والخامات",
+    furn_sec_4: "عرض السعر المقترح",
+    
+    furn_lbl_name: "الاسم الكامل / الجهة",
+    furn_lbl_source: "مصدر المعرفة",
+    furn_res_project: "مشروع سكني",
+    furn_res_desc: "فلل، شقق، قصور",
+    furn_com_project: "مشروع تجاري",
+    furn_com_desc: "فنادق، مكاتب، مطاعم",
+    
+    furn_lbl_restype: "نوع الوحدة السكنية",
+    furn_lbl_roomlist: "قائمة الغرف والمساحات",
+    furn_btn_add_space: "إضافة مساحة",
+    furn_ph_room: "اسم الغرفة (مثال: نوم رئيسية)",
+    
+    furn_lbl_comtype: "نوع النشاط",
+    furn_lbl_projname: "اسم المشروع",
+    furn_lbl_units: "وحدات المشروع (الغرف، المكاتب، المرافق)",
+    furn_ph_projname: "مثال: فندق الرواسي",
+    
+    furn_lbl_style: "نمط التصميم (Style)",
+    furn_lbl_wood: "نوع الخشب المفضل",
+    furn_lbl_level: "مستوى التأثيث",
+    furn_lbl_cladding: "هل ترغب بتكسيات جدارية؟",
+    furn_lbl_cladding_area: "المساحة التقديرية للجدران (م٢)",
+    furn_lbl_plan_img: "صور للمخطط أو التصميم (اختياري)",
+    
+    furn_review_text: "قام النظام باختيار المنتجات التالية بناءً على مواصفات مشروعك. يمكنك اعتماد الطلب ليقوم فريقنا بتدقيقه.",
+    furn_col_prod: "المنتج",
+    furn_col_qty: "الكمية",
+    furn_col_price: "سعر الوحدة (تقديري)",
+    furn_col_total: "الإجمالي",
+    furn_total_est: "الإجمالي التقديري:",
+    furn_disclaimer: "هذا العرض مبدئي وتم توليده آلياً. قد تختلف الأسعار النهائية بناءً على الكميات الدقيقة والمواصفات الفنية المعتمدة بعد زيارة الموقع.",
+    
+    btn_prev: "سابق",
+    btn_next: "التالي",
+    btn_gen_quote: "توليد عرض السعر",
+    btn_confirm_send: "اعتماد وإرسال الطلب",
+    btn_new_req: "طلب جديد",
 
     // Design Form
     story_tag: "ابدأ قصتك",
@@ -120,6 +190,22 @@ export const translations = {
     alert_success_title: "تم إرسال طلبك بنجاح!",
     alert_success_msg: "يقوم نظامنا الآن بمعالجة طلبك.. سيصلك إيميل يحتوي على عرض السعر وتفاصيل المشروع خلال لحظات.",
     
+    // Booking
+    book_title: "احجز موعدك",
+    book_subtitle: "تفضل بزيارة مقرنا الرئيسي لمناقشة مشروعك مع خبرائنا.",
+    book_name: "الاسم",
+    book_phone: "رقم الجوال",
+    book_email: "البريد الإلكتروني",
+    book_service: "نوع الخدمة",
+    book_service_design: "استشارة تصميم داخلي",
+    book_service_sales: "مبيعات وتوريدات",
+    book_date: "التاريخ",
+    book_time: "الوقت",
+    book_reason: "سبب الزيارة",
+    book_btn: "تأكيد الحجز",
+    book_success: "تم حجز موعدك بنجاح! سنكون بانتظارك.",
+    book_location: "مقرنا الرئيسي - المدينة المنورة",
+
     // Dropdown Options
     opt_select: "اختر...",
     opt_google: "بحث جوجل",
@@ -194,6 +280,10 @@ export const translations = {
     nav_projects: "Projects",
     btn_req_design: "Request Design",
     
+    // Global
+    address_full: "Prince Mohammad Bin Abdulaziz St, Alalia, Madinah",
+    work_hours: "Sat - Thu: 09:00 AM - 10:00 PM",
+
     // Auth
     auth_welcome: "Welcome Back",
     auth_create: "Create Account",
@@ -244,6 +334,72 @@ export const translations = {
     feat_feasibility: "Feasibility Studies",
     feat_retail_fitout: "Retail Fit-out",
     development_btn: "Start Project",
+
+    // Wood Catalog
+    wood_hero_sub: "Experts in Decorative Panels & Wood Surfaces",
+    wood_call: "Contact Us",
+    wood_marquee: "Transform your spaces and create trendy modern designs • Superior cutting case • Smooth and durable finish • Ideal for furniture",
+    wood_catalog_title: "Our Luxury Collection",
+    wood_catalog_sub: "Browse Exclusive Collections",
+    wood_feat_moisture: "Moisture Resistant",
+    wood_feat_moisture_desc: "Avoid direct water contact, designed to minimize swelling.",
+    wood_feat_scratch: "Scratch Resistant",
+    wood_feat_scratch_desc: "Durable and practical surface for daily use.",
+    wood_feat_clean: "Easy to Clean",
+    wood_feat_clean_desc: "Practical, versatile, and easy to maintain.",
+    wood_feat_eco: "Eco-Friendly",
+    wood_feat_eco_desc: "We use the best eco-friendly MDF materials.",
+
+    // Furniture Request (Smart Form)
+    furn_title: "Smart Furnishing Form",
+    furn_desc: "AI-Powered Instant Quoting System",
+    step_cat: "Category",
+    step_det: "Spaces",
+    step_spec: "Specs",
+    step_rev: "Review",
+    
+    furn_sec_1: "1. Client & Project Type",
+    furn_sec_2: "2. Spaces Details",
+    furn_sec_3: "3. Specs & Materials",
+    furn_sec_4: "Proposed Quote",
+    
+    furn_lbl_name: "Full Name / Entity",
+    furn_lbl_source: "Referral Source",
+    furn_res_project: "Residential Project",
+    furn_res_desc: "Villas, Apartments, Palaces",
+    furn_com_project: "Commercial Project",
+    furn_com_desc: "Hotels, Offices, Restaurants",
+    
+    furn_lbl_restype: "Residential Unit Type",
+    furn_lbl_roomlist: "Rooms List",
+    furn_btn_add_space: "Add Space",
+    furn_ph_room: "Room Name (e.g., Master Bedroom)",
+    
+    furn_lbl_comtype: "Activity Type",
+    furn_lbl_projname: "Project Name",
+    furn_lbl_units: "Project Units (Rooms, Offices, Facilities)",
+    furn_ph_projname: "e.g., Al Rawasi Hotel",
+    
+    furn_lbl_style: "Design Style",
+    furn_lbl_wood: "Preferred Wood Type",
+    furn_lbl_level: "Furnishing Level",
+    furn_lbl_cladding: "Do you want wall cladding?",
+    furn_lbl_cladding_area: "Est. Wall Area (m2)",
+    furn_lbl_plan_img: "Floor Plan / Design Images (Optional)",
+    
+    furn_review_text: "The system selected the following products based on your specs. You can confirm the request for our team to review.",
+    furn_col_prod: "Product",
+    furn_col_qty: "Qty",
+    furn_col_price: "Unit Price (Est.)",
+    furn_col_total: "Total",
+    furn_total_est: "Estimated Total:",
+    furn_disclaimer: "This is a preliminary AI-generated quote. Final prices may vary based on exact quantities and technical specs after site visit.",
+    
+    btn_prev: "Previous",
+    btn_next: "Next",
+    btn_gen_quote: "Generate Quote",
+    btn_confirm_send: "Confirm & Send",
+    btn_new_req: "New Request",
 
     // Design Form
     story_tag: "Start Your Story",
@@ -305,6 +461,22 @@ export const translations = {
 
     alert_success_title: "Request Sent Successfully!",
     alert_success_msg: "We are processing your request. You will receive an email with the quotation and project details momentarily.",
+
+    // Booking
+    book_title: "Book Appointment",
+    book_subtitle: "Visit our HQ to discuss your project with our experts.",
+    book_name: "Name",
+    book_phone: "Phone",
+    book_email: "Email",
+    book_service: "Service Type",
+    book_service_design: "Interior Design Consultation",
+    book_service_sales: "Sales & Supplies",
+    book_date: "Date",
+    book_time: "Time",
+    book_reason: "Reason for visit",
+    book_btn: "Confirm Booking",
+    book_success: "Appointment booked successfully!",
+    book_location: "Madinah HQ",
 
     // Dropdown Options
     opt_select: "Select...",

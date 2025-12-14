@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -14,13 +15,16 @@ import { DesignRequest } from './pages/DesignRequest';
 import { FeasibilityStudy } from './pages/FeasibilityStudy';
 import { FurnitureRequest } from './pages/FurnitureRequest';
 import { WoodCatalog } from './pages/WoodCatalog';
+import { BookAppointment } from './pages/BookAppointment';
 
-// Unified Protected Route
-const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
+// Unified Protected Route for v6
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   // Redirect to login if not authenticated
-  // We default to client-login for general access, admin-login is specific
-  return isAuthenticated ? <>{children}</> : <Navigate to="/client-login" replace />;
+  if (!isAuthenticated) {
+     return <Navigate to="/client-login" replace />;
+  }
+  return <>{children}</>;
 };
 
 const AppContent = () => {
@@ -30,18 +34,22 @@ const AppContent = () => {
       <InstallModal />
       <Routes>
         {/* Public Routes with Layout */}
-        <Route element={<Layout><Home /></Layout>} path="/" />
-        <Route element={<Layout><DesignRequest /></Layout>} path="/design-request" />
-        {/* Updated: Use new FurnitureRequest page instead of basic form if preferred, keeping old route name for compatibility or adding new one */}
-        <Route element={<Layout><FurnitureRequest /></Layout>} path="/furniture-request" />
-        <Route element={<Layout><FurnitureQuoteForm /></Layout>} path="/furniture-quote" />
-        <Route element={<Layout><FeasibilityStudy /></Layout>} path="/feasibility-study" />
+        <Route path="/" element={<Layout><Home /></Layout>} />
+        <Route path="/design-request" element={<Layout><DesignRequest /></Layout>} />
+        
+        {/* Updated: Use new FurnitureRequest page instead of basic form if preferred */}
+        <Route path="/furniture-request" element={<Layout><FurnitureRequest /></Layout>} />
+        <Route path="/furniture-quote" element={<Layout><FurnitureQuoteForm /></Layout>} />
+        <Route path="/feasibility-study" element={<Layout><FeasibilityStudy /></Layout>} />
         
         {/* New Wood Catalog Page */}
-        <Route element={<Layout><WoodCatalog /></Layout>} path="/wood-catalog" />
+        <Route path="/wood-catalog" element={<Layout><WoodCatalog /></Layout>} />
         
-        <Route element={<Layout><Login /></Layout>} path="/admin-login" />
-        <Route element={<Layout><ClientAuth /></Layout>} path="/client-login" />
+        {/* New Book Appointment Page */}
+        <Route path="/book-appointment" element={<Layout><BookAppointment /></Layout>} />
+        
+        <Route path="/admin-login" element={<Layout><Login /></Layout>} />
+        <Route path="/client-login" element={<Layout><ClientAuth /></Layout>} />
         
         {/* Unified Dashboard (Admin & Client) */}
         <Route path="/dashboard" element={
@@ -52,6 +60,9 @@ const AppContent = () => {
 
         {/* Redirect legacy /my-requests to dashboard */}
         <Route path="/my-requests" element={<Navigate to="/dashboard" replace />} />
+        
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
