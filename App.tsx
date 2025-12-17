@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -18,7 +17,7 @@ import { WoodCatalog } from './pages/WoodCatalog';
 import { BookAppointment } from './pages/BookAppointment';
 
 // Unified Protected Route for v6
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   // Redirect to login if not authenticated
   if (!isAuthenticated) {

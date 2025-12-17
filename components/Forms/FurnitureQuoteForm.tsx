@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Upload, Send, Loader2 } from 'lucide-react';
-import { FurnitureItem } from '../../types';
+import { FurnitureItem, FurnitureQuotePayload } from '../../types';
 import { fileToBase64, submitFurnitureQuote } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
 
 export const FurnitureQuoteForm = () => {
+  const { lang } = useLanguage();
   const [items, setItems] = useState<FurnitureItem[]>([
     { id: '1', name: '', quantity: 1, specs: '', imageBase64: null }
   ]);
@@ -48,12 +50,30 @@ export const FurnitureQuoteForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const payload = {
-      type: 'furniture' as const,
-      items,
-      contactName: contact.name,
-      contactEmail: contact.email,
-      timestamp: new Date().toISOString()
+    const payload: FurnitureQuotePayload = {
+      lang,
+      type: 'Furniture Request',
+      client: {
+        name: contact.name,
+        email: contact.email,
+        phone: '', // Placeholder
+        source: 'Quick Quote Form'
+      },
+      project: {
+        category: 'General',
+        type: 'Quote',
+        name: 'Online Request',
+        woodType: 'Standard',
+        level: 'Standard',
+        style: 'Modern',
+        notes: '',
+        packages: ['Furniture'],
+        details: JSON.stringify(items)
+      },
+      files: items.filter(i => i.imageBase64).map(i => ({
+        name: i.name || 'image.png',
+        base64: i.imageBase64?.split(',')[1] || ''
+      }))
     };
 
     const success = await submitFurnitureQuote(payload);
