@@ -638,6 +638,66 @@ export const FurnitureRequest = () => {
                          )}
                       </div>
 
+                      {/* ==================================== */}
+                      {/* SECTION: FINISHES (Flooring & Wall)  */}
+                      {/* ==================================== */}
+                      <div className="border rounded-xl border-gray-100 shadow-sm">
+                         <SectionHeader 
+                            title={lang==='ar'?'الأرضيات والتكسيات':'Flooring & Cladding'} 
+                            icon={Ruler} 
+                            checked={room.hasFlooring} 
+                            onToggle={() => updateRoom(room.id, { hasFlooring: !room.hasFlooring })} 
+                         />
+                         {room.hasFlooring && (
+                            <div className="p-5 space-y-5 bg-gray-50/50">
+                               
+                               {/* 1. Flooring Selection */}
+                               <div>
+                                  <label className="label-std text-xs mb-2">{lang==='ar'?'نوع الأرضية':'Flooring Type'}</label>
+                                  <div className="flex flex-wrap gap-2">
+                                     {FLOORING_OPTS.map(opt => (
+                                        <div 
+                                           key={opt}
+                                           onClick={() => {
+                                              const current = room.flooringTypes;
+                                              // Toggle logic: Add or Remove
+                                              const newTypes = current.includes(opt) ? current.filter(x => x !== opt) : [...current, opt];
+                                              updateRoom(room.id, { flooringTypes: newTypes });
+                                           }}
+                                           className={`px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all ${room.flooringTypes.includes(opt) ? 'bg-ukra-gold text-white border-ukra-gold shadow-sm' : 'bg-white text-gray-500 hover:border-gray-300'}`}
+                                        >
+                                           {tr(opt)}
+                                        </div>
+                                     ))}
+                                  </div>
+                               </div>
+
+                               {/* 2. Cladding Selection */}
+                               <div className="border-t pt-3">
+                                  <label className="flex items-center gap-2 mb-3 font-bold text-sm text-ukra-navy cursor-pointer">
+                                     <input type="checkbox" checked={room.hasCladding} onChange={(e) => updateRoom(room.id, { hasCladding: e.target.checked })} /> 
+                                     {lang==='ar'?'تكسيات جدارية':'Wall Cladding'}
+                                  </label>
+                                  
+                                  {room.hasCladding && (
+                                     <div className="grid grid-cols-3 gap-2 animate-in fade-in">
+                                        <div className="col-span-2">
+                                           <label className="text-[10px] text-gray-500 font-bold block mb-1">النوع</label>
+                                           <select value={room.claddingType} onChange={e => updateRoom(room.id, { claddingType: e.target.value as any })} className="input-std text-xs h-9">
+                                              {CLADDING_MATS.map(c => <option key={c.value} value={c.value}>{lang==='ar'?c.label_ar:c.label_en}</option>)}
+                                           </select>
+                                        </div>
+                                        <div>
+                                           <label className="text-[10px] text-gray-500 font-bold block mb-1">المساحة (م²)</label>
+                                           <input type="number" placeholder="20" value={room.claddingMeters} onChange={e => updateRoom(room.id, { claddingMeters: e.target.value })} className="input-std text-xs h-9 text-center"/>
+                                        </div>
+                                     </div>
+                                  )}
+                               </div>
+                            </div>
+                         )}
+                      </div>
+
                       {/* SECTION 3: DECOR (New) */}
                       <div className="border rounded-xl border-gray-100 shadow-sm">
                          <SectionHeader title={lang==='ar'?'الديكور والإضاءة':'Decor & Lighting'} icon={Lamp} checked={room.hasDecor} onToggle={() => updateRoom(room.id, { hasDecor: !room.hasDecor })} />
