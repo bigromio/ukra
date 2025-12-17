@@ -21,7 +21,7 @@ export const GEOFENCE_TARGET = {
 export const API_URL_DASHBOARD = "https://script.google.com/macros/s/AKfycbyaOd_30KSbMf6q0ClLoTsIhjbIFihAA7ySb4vfJSANJ6zhx05dyFGwDbx2aBr_t6by7A/exec";
 
 // DEDICATED Design Request Script
-export const API_URL_DESIGN = "https://script.google.com/macros/s/AKfycbyIN3Avht8f8SKgiatQosqBbW8ZehaU8IesX02dDhOwWl_KDp1tpNcjUYPzVJP1ILwS/exec";
+export const API_URL_DESIGN = "https://script.google.com/macros/s/AKfycbzuBdr9JSQDp8tJ5_wfISBkl36VH7DvR691uK4xHj89yY9yiS1gXDUcZ8L60VAOD6Yp/exec";
 
 // Booking Appointment Script
 export const API_URL_BOOKING = "REPLACE_WITH_YOUR_GOOGLE_SCRIPT_URL";

@@ -5,10 +5,13 @@ import { submitFurnitureQuote, fileToBase64 } from '../services/apiService';
 import { 
   Building, Home, Check, ChevronLeft, ChevronRight, 
   Plus, Trash2, Upload, Loader2, Sparkles, Sofa, 
-  Lamp, Scissors, Ruler, Hotel, AlertCircle, Camera, Users, Gift, AlertTriangle, Coffee
+  Lamp, Scissors, Ruler, Hotel, AlertCircle, Camera, Users, Gift, AlertTriangle, Coffee,
+  DoorOpen, LayoutDashboard, Monitor, Briefcase, UserPlus, Phone, MapPin, Search, Youtube, Facebook, Instagram, Tv, Shirt
 } from 'lucide-react';
 
-// --- Types ---
+// ==========================================
+// 1. TYPES & INTERFACES
+// ==========================================
 
 type ProjectCategory = 'residential' | 'commercial';
 
@@ -18,165 +21,243 @@ interface RoomConfig {
   count: number;
   area: string;
   
-  // A. Wood
+  // A. Woodworks (النجارة)
   hasWood: boolean;
   woodType: string;
-  hasSofa: boolean; // Generic Sofa/Seating
-  hasCoffeeTable: boolean; // Combined with Sofa usually
-  hasLockers: boolean; // For Gym/Showroom
-  
-  // New Specific Options
-  hasStudyDesk: boolean; // Kids Room
-  hasTVUnit: boolean; // Living/Majlis
-  hasDisplayCabinet: boolean; // Living/Majlis
-  hasEntranceStorage: boolean; // Entrance
+  // Bedroom Specifics
+  wardrobeType: 'Hinged' | 'Sliding';
+  wardrobeFacade: 'Wood' | 'Mirror' | 'Glass';
+  headboardType: 'Plain' | 'Upholstered' | 'CNC';
 
-  // B. Furnishing
+  // B. Seating Zone
+  needsSeatingZone: boolean; 
+  sofaType?: 'L-Shape' | 'Separate Set' | 'Armchairs';
+  hasSofa: boolean;
+  hasArmchair: boolean;
+  hasCoffeeTable: boolean;
+  
+  // C. Functional (Mixed)
+  hasStudyDesk: boolean;       
+  hasTVUnit: boolean;          
+  hasEntranceConsole: boolean; 
+  hasDresser: boolean;         
+  hasLockers: boolean;         
+
+  // D. Furnishing
   hasFurnishing: boolean;
   furnishLevel: string;
   hasCurtains: boolean;
   curtainType: string;
   curtainMeters: string;
 
-  // C. Flooring & Cladding
+  // E. Finishes
   hasFlooring: boolean;
-  flooringTypes: string[]; // ['Parquet', 'Carpet', 'Rugs']
+  flooringTypes: string[]; 
   hasCladding: boolean;
+  claddingType: 'WPC' | 'Wood' | 'Upholstered' | 'Mirror';
   claddingMeters: string;
 
-  // D. Decor & Lighting
+  // F. Decor (New)
   hasDecor: boolean;
-  decorLevel: string;
-  
   hasChandelier: boolean;
-  chandelierSize: string; // 'Small' | 'Medium' | 'Large' | 'Custom'
-  chandelierMeters: string; // If custom
-  
+  chandelierSize: 'Small' | 'Medium' | 'Large' | 'Custom'; 
+  chandelierMeters: string; 
   hasArt: boolean;
-  artSize: string; // 'Small' | 'Medium' | 'Large' | 'Custom'
-  artMeters: string; // If custom
-
-  // E. Amenities (Commercial)
+  artType: 'Canvas' | 'Oil' | 'Custom';
+  artMeters: string;
+  
+  // G. Amenities (Restored)
   hasAmenities: boolean;
   selectedAmenities: string[];
 }
 
-// --- Constants & Translations ---
+// ==========================================
+// 2. CONSTANTS & LISTS
+// ==========================================
 
-const RES_ROOMS = ['Master Bedroom', 'General Bedroom', 'Kids Room', 'Office', 'Living Room', 'Majlis', 'Entrance', 'Outdoor Area'];
-const COM_ROOMS = ['Single Room (1 Nightstand)', 'Queen Room (2 Nightstands)', 'Master Suite', 'Reception', 'Lobby Waiting', 'Restaurant', 'Cafe', 'Showroom', 'Gym'];
+const RES_ROOMS = ['Master Bedroom', 'General Bedroom', 'Kids Bedroom', 'Home Office', 'Living Room', 'Majlis', 'Entrance', 'Dining Room', 'Kitchen'];
+const COM_ROOMS = ['Single Room', 'Double Room', 'Executive Suite', 'Reception', 'Lobby Waiting', 'Restaurant', 'Meeting Room', 'Gym'];
+
+// Flattened Referral Sources
+const FLAT_SOURCES = [
+  { val: 'Google Search', label_ar: 'بحث جوجل', label_en: 'Google Search', icon: Search },
+  { val: 'Google Maps', label_ar: 'خرائط جوجل', label_en: 'Google Maps', icon: MapPin },
+  { val: 'TikTok', label_ar: 'تيك توك', label_en: 'TikTok', icon: Phone },
+  { val: 'Instagram', label_ar: 'انستجرام', label_en: 'Instagram', icon: Camera },
+  { val: 'Snapchat', label_ar: 'سناب شات', label_en: 'Snapchat', icon: Phone },
+  { val: 'Twitter', label_ar: 'تويتر (X)', label_en: 'Twitter (X)', icon: Phone },
+  { val: 'Facebook', label_ar: 'فيسبوك', label_en: 'Facebook', icon: Facebook },
+  { val: 'YouTube', label_ar: 'يوتيوب', label_en: 'YouTube', icon: Youtube },
+  { val: 'Sales Representative', label_ar: 'مندوب مبيعات', label_en: 'Sales Rep', icon: Briefcase },
+  { val: 'Friend', label_ar: 'ترشيح من صديق', label_en: 'Friend Referral', icon: UserPlus },
+];
 
 const WOOD_TYPES = [
-  { value: 'Melamine_National', label: 'Melamine National' },
-  { value: 'Melamine_Thai', label: 'Melamine Thai' },
-  { value: 'Chipboard_Thai', label: 'Chipboard Thai' },
-  { value: 'Chipboard_Spanish', label: 'Chipboard Spanish' },
-  { value: 'Chipboard_German', label: 'Chipboard German (Egger)' },
+  { value: 'Melamine_National', label: 'ميلامين وطني (National Melamine)' },
+  { value: 'Melamine_Thai', label: 'ميلامين تايلاندي (Thai Melamine)' },
+  { value: 'Chipboard_Thai', label: 'شيبورد تايلاندي (Thai Chipboard)' },
+  { value: 'Chipboard_Spanish', label: 'شيبورد إسباني (Spanish Chipboard)' },
+  { value: 'Chipboard_German', label: 'شيبورد ألماني (Egger Germany)' },
+];
+
+const WARDROBE_MECHS = [
+  { value: 'Hinged', label_ar: 'مفصلي (Dolf)', label_en: 'Hinged' },
+  { value: 'Sliding', label_ar: 'سحاب (Sliding)', label_en: 'Sliding' }
+];
+
+const WARDROBE_FACES = [
+  { value: 'Wood', label_ar: 'واجهة خشب', label_en: 'Wood Face' },
+  { value: 'Mirror', label_ar: 'واجهة مرايا', label_en: 'Mirror Face' },
+  { value: 'Glass', label_ar: 'واجهة زجاج', label_en: 'Glass Face' }
+];
+
+const HEADBOARD_STYLES = [
+  { value: 'Plain', label_ar: 'خشب سادة (مودرن)', label_en: 'Plain Wood' },
+  { value: 'Upholstered', label_ar: 'منجد (قماش/جلد)', label_en: 'Upholstered' },
+  { value: 'CNC', label_ar: 'حفر زخرفي (CNC)', label_en: 'CNC Pattern' }
+];
+
+const CLADDING_MATS = [
+  { value: 'WPC', label_ar: 'بديل خشب/رخام', label_en: 'WPC / PVC' },
+  { value: 'Wood', label_ar: 'خشب طبيعي/قشرة', label_en: 'Natural Wood' },
+  { value: 'Upholstered', label_ar: 'تنجيد جداري', label_en: 'Upholstered Panel' },
+  { value: 'Mirror', label_ar: 'مرايا ديكورية', label_en: 'Decorative Mirror' }
 ];
 
 const QUALITY_LEVELS = ['Economic', 'Medium', 'High', 'VIP'];
 const CURTAIN_TYPES = ['Blackout', 'Sheer', 'Both'];
-const FLOORING_OPTS = ['Parquet', 'Carpet (Moket)', 'Rugs'];
+const FLOORING_OPTS = ['Parquet', 'Carpet', 'Rugs', 'Vinyl'];
 
-// UPDATED: Added new Amenities
+// Full Hospitality Amenities List
 const AMENITY_LIST = [
-  'Kettle', 'Tray', 'Iron', 'Hangers', 'Safe', 'Hair Dryer',
-  'Turkish Coffee Machine', 'Espresso Machine', 'Electric Arabic Coffee Dallah', 'Bathroom Set', 'Waste Bins'
+  'Ironing Board', 'Steam Iron', 'Electric Kettle', 'Welcome Tray',
+  'Turkish Coffee Machine', 'Espresso Machine', 'Saudi Dallah (Electric)',
+  'Bathroom Set', 'Waste Bins', 'Coat Hangers', 'Safe Box', 
+  'Minibar', 'Hair Dryer', 'Slippers', 'Luggage Rack'
 ];
 
-const REFERRAL_SOURCES = ['Google Search', 'Google Maps', 'TikTok', 'Snapchat', 'Instagram', 'Facebook', 'YouTube', 'Sales Representative', 'Friend'];
-const ITEM_SIZES = ['Small', 'Medium', 'Large', 'Custom'];
+const CHANDELIER_SIZES = ['Small', 'Medium', 'Large', 'Custom'];
+const ART_TYPES = ['Canvas', 'Oil', 'Custom'];
 
-// Translation Dictionary
+// Translations
 const UI_LABELS: Record<string, string> = {
   // Rooms
   'Master Bedroom': 'غرفة نوم رئيسية',
   'General Bedroom': 'غرفة نوم عامة',
-  'Kids Room': 'غرفة أطفال',
-  'Office': 'مكتب منزلي',
+  'Kids Bedroom': 'غرفة أطفال',
+  'Home Office': 'مكتب منزلي',
+  'Office': 'مكتب',
   'Living Room': 'غرفة معيشة',
   'Majlis': 'مجلس',
   'Entrance': 'مدخل',
-  'Outdoor Area': 'منطقة خارجية',
-  'Single Room (1 Nightstand)': 'غرفة مفردة (كومودينة واحدة)',
-  'Queen Room (2 Nightstands)': 'غرفة مزدوجة (٢ كومودينة)',
-  'Master Suite': 'جناح رئيسي',
+  'Dining Room': 'غرفة طعام',
+  'Kitchen': 'مطبخ',
+  'Single Room': 'غرفة مفردة (فندق)',
+  'Double Room': 'غرفة مزدوجة (فندق)',
+  'Executive Suite': 'جناح تنفيذي',
   'Reception': 'استقبال',
   'Lobby Waiting': 'انتظار اللوبي',
   'Restaurant': 'مطعم',
-  'Cafe': 'مقهى',
-  'Showroom': 'معرض تجاري',
+  'Meeting Room': 'غرفة اجتماعات',
   'Gym': 'نادي رياضي',
   
-  // Wood
-  'Melamine_National': 'ميلامين وطني',
-  'Melamine_Thai': 'ميلامين تايلاندي',
-  'Chipboard_Thai': 'شيبورد تايلاندي',
-  'Chipboard_Spanish': 'شيبورد إسباني',
-  'Chipboard_German': 'شيبورد ألماني (Egger)',
+  // General
+  'Economic': 'اقتصادي', 'Medium': 'متوسط', 'High': 'عالي', 'VIP': 'فاخر',
+  'Blackout': 'تعتيم', 'Sheer': 'شيفون', 'Both': 'طبقتين',
+  'Parquet': 'باركيه', 'Carpet': 'موكيت', 'Rugs': 'سجاد', 'Vinyl': 'فينيل',
   
-  // Quality
-  'Economic': 'اقتصادي',
-  'Medium': 'متوسط',
-  'High': 'عالي',
-  'VIP': 'فاخر',
+  // Decor
+  'Small': 'صغير (60سم)', 'Large': 'كبير (200سم)', 'Custom': 'تفصيل (بالمتر)',
+  'Canvas': 'طباعة كانفاس', 'Oil': 'رسم زيتي',
   
-  // Curtains
-  'Blackout': 'تعتيم (Blackout)',
-  'Sheer': 'شيفون (Sheer)',
-  'Both': 'طبقتين (Both)',
-  
-  // Flooring
-  'Parquet': 'باركيه',
-  'Carpet (Moket)': 'موكيت',
-  'Rugs': 'سجاد قطع',
-  
-  // Amenities (UPDATED)
-  'Kettle': 'غلاية',
-  'Tray': 'صينية ضيافة',
-  'Iron': 'مكواة',
-  'Hangers': 'علاقات ملابس',
-  'Safe': 'خزنة',
-  'Hair Dryer': 'مجفف شعر',
+  // Amenities
+  'Ironing Board': 'طاولة كوي',
+  'Steam Iron': 'مكواة بخار',
+  'Electric Kettle': 'غلاية كهربائية',
+  'Welcome Tray': 'صينية ضيافة',
   'Turkish Coffee Machine': 'ماكينة قهوة تركية',
-  'Espresso Machine': 'ماكينة قهوة شاملة',
-  'Electric Arabic Coffee Dallah': 'دلة قهوة عربية كهربائية',
-  'Bathroom Set': 'طقم حمام',
+  'Espresso Machine': 'ماكينة اسبريسو',
+  'Saudi Dallah (Electric)': 'دلة قهوة سعودية',
+  'Bathroom Set': 'طقم حمام (موزع..)',
   'Waste Bins': 'سلات مهملات',
-  
-  // Sizes
-  'Small': 'صغير',
-  'Large': 'كبير',
-  'Custom': 'تفصيل (بالمتر)',
-
-  // Sources
-  'Google Search': 'بحث جوجل',
-  'Google Maps': 'خرائط جوجل',
-  'TikTok': 'تيك توك',
-  'Snapchat': 'سناب شات',
-  'Instagram': 'انستجرام',
-  'Facebook': 'فيسبوك',
-  'YouTube': 'يوتيوب',
-  'Sales Representative': 'مندوب مبيعات',
-  'Friend': 'صديق'
+  'Coat Hangers': 'علاقات ملابس',
+  'Safe Box': 'خزنة أمان',
+  'Minibar': 'ثلاجة ميني بار',
+  'Hair Dryer': 'مجفف شعر',
+  'Slippers': 'خف (Slippers)',
+  'Luggage Rack': 'حامل حقائب'
 };
 
-// --- Helper Components ---
+// ==========================================
+// 3. LOGIC HELPERS
+// ==========================================
 
-const SectionHeader = ({ title, icon: Icon, checked, onToggle, lang }: any) => (
-  <div 
-    onClick={onToggle}
-    className={`flex items-center justify-between p-3 rounded-t-lg cursor-pointer transition-colors ${checked ? 'bg-ukra-navy text-white' : 'bg-gray-100 text-gray-500'}`}
-  >
-    <div className="flex items-center gap-2 font-bold">
-      <Icon className="w-5 h-5" />
-      <span>{title}</span>
-    </div>
+const getInitialRoomState = (type: string, category: ProjectCategory): RoomConfig => {
+  const isBedroom = type.includes('Bedroom') || type.includes('Room') || type.includes('Suite');
+  const isLiving = type.includes('Living') || type.includes('Majlis') || type.includes('Lobby') || type.includes('Reception');
+  const isOffice = type.includes('Office') || type.includes('Meeting');
+  const isEntrance = type.includes('Entrance');
+  const isGym = type.includes('Gym');
+  const isKids = type.includes('Kids');
+
+  return {
+    id: Date.now().toString() + Math.random(),
+    type,
+    count: 1,
+    area: '',
+
+    // Smart Wood Logic
+    hasWood: isBedroom || isKids || isEntrance || isOffice, 
+    woodType: '',
+    wardrobeType: 'Hinged', wardrobeFacade: 'Wood', headboardType: 'Upholstered',
+
+    // Smart Seating Logic
+    needsSeatingZone: isLiving, // Automatically true for Living areas
+    sofaType: isLiving ? 'Separate Set' : undefined,
+    hasSofa: isLiving, 
+    hasArmchair: false, 
+    hasCoffeeTable: isLiving,
+
+    // Smart Functional Logic
+    hasStudyDesk: isOffice, // Mandatory for Office
+    hasTVUnit: isLiving, // Default true for Living
+    hasEntranceConsole: isEntrance, // Mandatory for Entrance
+    hasDresser: isBedroom && !isKids, 
+    hasLockers: isGym,
+
+    // Furnishing
+    hasFurnishing: isBedroom || isLiving,
+    furnishLevel: '',
+    hasCurtains: true, 
+    curtainType: 'Blackout', curtainMeters: '',
+
+    // Finishes
+    hasFlooring: false, flooringTypes: [],
+    hasCladding: false, claddingType: 'WPC', claddingMeters: '',
+
+    // Finishes
+    hasDecor: isLiving || isEntrance || isBedroom, 
+    hasChandelier: false, chandelierSize: 'Medium', chandelierMeters: '',
+    hasArt: false, artType: 'Canvas', artMeters: '',
+
+    // Amenities
+    hasAmenities: category === 'commercial' || isBedroom || isLiving, 
+    selectedAmenities: []
+  };
+};
+
+const SectionHeader = ({ title, icon: Icon, checked, onToggle, locked = false }: any) => (
+  <div onClick={locked ? undefined : onToggle} className={`flex items-center justify-between p-3 rounded-t-lg transition-colors ${checked ? 'bg-ukra-navy text-white' : 'bg-gray-100 text-gray-500'} ${!locked && 'cursor-pointer'}`}>
+    <div className="flex items-center gap-2 font-bold"><Icon className="w-5 h-5" /><span>{title}</span></div>
     <div className={`w-5 h-5 rounded border flex items-center justify-center ${checked ? 'bg-ukra-gold border-ukra-gold text-ukra-navy' : 'bg-white border-gray-300'}`}>
       {checked && <Check className="w-3 h-3" />}
     </div>
   </div>
 );
+
+// ==========================================
+// 4. COMPONENT
+// ==========================================
 
 export const FurnitureRequest = () => {
   const { t, dir, lang } = useLanguage();
@@ -184,15 +265,11 @@ export const FurnitureRequest = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // --- Global State ---
+  // Client State
   const [client, setClient] = useState({ 
-    name: '', 
-    phone: '', 
-    email: '', 
-    source: '', 
-    salesCode: '',
-    friendPhone: '',
-    projectName: '' // New for Commercial
+    name: '', phone: '', email: '', 
+    source: '', salesCode: '', friendPhone: '', 
+    projectName: '' 
   });
   
   const [category, setCategory] = useState<ProjectCategory>('residential');
@@ -200,38 +277,27 @@ export const FurnitureRequest = () => {
   const [images, setImages] = useState<{ name: string; base64: string }[]>([]);
   const [notes, setNotes] = useState('');
 
-  // --- Logic ---
-
-  // Helper to translate any value
+  // Helpers
   const tr = (val: string) => (lang === 'ar' ? (UI_LABELS[val] || val) : val);
+  
+  // Categorization Checks
+  const isBedroom = (type: string) => ['Bedroom', 'Room', 'Suite'].some(k => type.includes(k));
+  const isKidsRoom = (type: string) => type.includes('Kids');
+  const isLivingArea = (type: string) => ['Living', 'Majlis', 'Reception', 'Lobby'].some(k => type.includes(k));
+  const isOfficeArea = (type: string) => type.includes('Office') || type.includes('Meeting');
+  const isEntrance = (type: string) => type.includes('Entrance');
+  const isGym = (type: string) => type.includes('Gym');
 
   const addRoom = () => {
-    const newRoom: RoomConfig = {
-      id: Date.now().toString(),
-      type: category === 'residential' ? RES_ROOMS[0] : COM_ROOMS[0],
-      count: 1,
-      area: '',
-      hasWood: false, woodType: '', 
-      hasSofa: false, hasCoffeeTable: false, hasLockers: false,
-      hasStudyDesk: false, hasTVUnit: false, hasDisplayCabinet: false, hasEntranceStorage: false,
-      
-      hasFurnishing: false, furnishLevel: '', hasCurtains: false, curtainType: '', curtainMeters: '',
-      hasFlooring: false, flooringTypes: [], hasCladding: false, claddingMeters: '',
-      hasDecor: false, decorLevel: '', 
-      hasChandelier: false, chandelierSize: '', chandelierMeters: '', 
-      hasArt: false, artSize: '', artMeters: '',
-      hasAmenities: false, selectedAmenities: []
-    };
-    setRooms([...rooms, newRoom]);
+    const type = category === 'residential' ? RES_ROOMS[0] : COM_ROOMS[0];
+    setRooms([...rooms, getInitialRoomState(type, category)]);
   };
 
   const updateRoom = (id: string, updates: Partial<RoomConfig>) => {
     setRooms(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
   };
 
-  const removeRoom = (id: string) => {
-    setRooms(prev => prev.filter(r => r.id !== id));
-  };
+  const removeRoom = (id: string) => setRooms(prev => prev.filter(r => r.id !== id));
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -244,116 +310,49 @@ export const FurnitureRequest = () => {
     }
   };
 
-  // --- Smart Visibility Functions ---
-
-  const isSleeping = (r: RoomConfig) => ['Bedroom', 'Room', 'Suite', 'Kids'].some(k => r.type.includes(k)) && !r.type.includes('Living');
-
-  const getVisibleAmenities = (type: string) => {
-    // 1. Full Amenities (Sleep Areas)
-    if (['Master Bedroom', 'General Bedroom', 'Single Room', 'Queen Room', 'Master Suite', 'Suite', 'Guest Room'].some(k => type.includes(k))) {
-      return AMENITY_LIST;
-    }
-    
-    // 2. Hospitality/Coffee Areas (Living, Majlis, Office, Cafe, Reception)
-    if (['Living Room', 'Majlis', 'Office', 'Reception', 'Lobby', 'Cafe', 'Restaurant'].some(k => type.includes(k))) {
-      return AMENITY_LIST.filter(a => 
-        ['Kettle', 'Tray', 'Turkish Coffee Machine', 'Espresso Machine', 'Electric Arabic Coffee Dallah', 'Waste Bins'].includes(a)
-      );
-    }
-
-    // 3. Functional Areas (Gym, Entrance, Showroom)
-    return AMENITY_LIST.filter(a => ['Waste Bins'].includes(a));
-  };
-
-  // --- Validation ---
   const validateStep = () => {
     if (currentStep === 1) {
-      if (!client.name || !client.phone) return alert(lang === 'ar' ? "الرجاء إدخال الاسم ورقم الجوال" : "Name and Phone are required");
-      if (!client.source) return alert(lang === 'ar' ? "الرجاء اختيار مصدر المعرفة" : "Please select referral source");
-      
-      if (category === 'commercial' && !client.projectName) {
-        return alert(lang === 'ar' ? "اسم المشروع التجاري إجباري" : "Commercial Project Name is mandatory");
-      }
-
-      if (client.source === 'Sales Representative' && !client.salesCode) {
-        return alert(lang === 'ar' ? "الرجاء إدخال كود المندوب" : "Sales Code is mandatory");
-      }
-
+      if (!client.name || !client.phone) return alert(lang==='ar'?"الاسم والجوال مطلوبان":"Name & Phone required");
+      if (client.source === 'Sales Representative' && !client.salesCode) return alert(lang==='ar'?"الرجاء إدخال كود المندوب":"Sales Code required");
+      if (client.source === 'Friend' && !client.friendPhone) return alert(lang==='ar'?"الرجاء إدخال جوال الصديق":"Friend Phone required");
       setCurrentStep(2);
     } else if (currentStep === 2) {
-      if (rooms.length === 0) return alert(lang === 'ar' ? "الرجاء إضافة مساحة واحدة على الأقل" : "Add at least one space");
-      
-      for (const r of rooms) {
-        const rName = tr(r.type);
-        if (!r.area) return alert(lang === 'ar' ? `الرجاء تحديد المساحة لـ ${rName}` : `Area required for ${rName}`);
-        
-        if (r.hasWood && !r.woodType) return alert(lang === 'ar' ? `اختر نوع الخشب لـ ${rName}` : `Select wood type for ${rName}`);
-        
-        if (r.hasFurnishing && !r.furnishLevel && isSleeping(r)) return alert(lang === 'ar' ? `اختر مستوى التأثيث لـ ${rName}` : `Select furnishing level for ${rName}`);
-        if (r.hasCurtains && !r.curtainMeters) return alert(lang === 'ar' ? `حدد أمتار الستائر لـ ${rName}` : `Enter curtain meters for ${rName}`);
-        
-        if (r.hasFlooring && r.flooringTypes.length === 0 && !r.hasCladding) return alert(lang === 'ar' ? `اختر نوع الأرضية أو التكسيات لـ ${rName}` : `Select flooring or cladding for ${rName}`);
-        
-        if (r.hasDecor) {
-           if (!r.decorLevel) return alert(lang === 'ar' ? `اختر مستوى الديكور لـ ${rName}` : `Select decor level for ${rName}`);
-           if (r.hasChandelier && !r.chandelierSize) return alert(lang === 'ar' ? `اختر مقاس الثريا لـ ${rName}` : `Select chandelier size for ${rName}`);
-           if (r.hasChandelier && r.chandelierSize === 'Custom' && !r.chandelierMeters) return alert(lang === 'ar' ? `حدد مقاس الثريا بالمتر لـ ${rName}` : `Enter chandelier custom size for ${rName}`);
-           if (r.hasArt && !r.artSize) return alert(lang === 'ar' ? `اختر مقاس اللوحات لـ ${rName}` : `Select artwork size for ${rName}`);
-        }
+      if (rooms.length === 0) return alert(lang==='ar'?"أضف غرفة واحدة على الأقل":"Add at least 1 room");
+      for(let r of rooms) {
+          if(!r.area) return alert(lang==='ar'?`أدخل مساحة ${tr(r.type)}`:`Enter area for ${r.type}`);
       }
-      
       setCurrentStep(3);
     }
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    const packagesSet = new Set<string>();
-    rooms.forEach(r => {
-      if (r.hasWood) packagesSet.add('Furniture');
-      if (r.hasFurnishing) packagesSet.add('Furnishing');
-      if (r.hasFlooring || r.hasCladding) packagesSet.add('Flooring/Cladding');
-      if (r.hasDecor) packagesSet.add('Decor');
-      if (r.hasAmenities) packagesSet.add('Amenities');
-    });
+    
+    // Mapping for Backend
+    const ROOM_MAPPING: Record<string, string> = {
+      'Master Bedroom': 'Bedroom', 'General Bedroom': 'Bedroom', 'Kids Bedroom': 'Kids Bedroom', 'Home Office': 'Office',
+      'Living Room': 'Living Room', 'Majlis': 'Majlis', 'Entrance': 'Entrance', 'Dining Room': 'Dining Room',
+      'Single Room': 'Single Room', 'Double Room': 'Double Room', 'Executive Suite': 'Double Room',
+      'Reception': 'Reception', 'Lobby Waiting': 'Reception', 'Restaurant': 'Restaurant', 'Gym': 'Gym'
+    };
 
     const payload = {
       action: 'submit_furniture',
       type: 'Furniture Request',
       lang: lang,
-      client: {
-        name: client.name,
-        phone: client.phone,
-        email: client.email,
-        source: client.source,
-        salesCode: client.salesCode,
-        friendPhone: client.friendPhone 
-      },
+      client: client,
       project: {
         category: category,
         type: category === 'residential' ? 'Residential Unit' : 'Commercial Project',
         name: category === 'commercial' ? client.projectName : `${client.name} - ${category}`,
-        woodType: 'Mixed', 
-        level: 'Mixed',
-        style: 'Modern', 
         notes: notes,
-        packages: Array.from(packagesSet),
+        packages: ['Furniture'], 
         details: JSON.stringify(rooms.map(r => ({
-          type: r.type,
+          type: ROOM_MAPPING[r.type] || r.type,
+          uiType: r.type,
           count: r.count,
           area: r.area,
-          options: {
-            hasWood: r.hasWood, woodType: r.woodType, 
-            hasSofa: r.hasSofa, hasCoffeeTable: r.hasCoffeeTable, hasLockers: r.hasLockers,
-            hasStudyDesk: r.hasStudyDesk, hasTVUnit: r.hasTVUnit, hasDisplayCabinet: r.hasDisplayCabinet, hasEntranceStorage: r.hasEntranceStorage,
-            
-            hasFurnishing: r.hasFurnishing, furnishLevel: r.furnishLevel, curtainType: r.curtainType, curtainMeters: r.curtainMeters,
-            hasFlooring: r.hasFlooring, flooringTypes: r.flooringTypes, hasCladding: r.hasCladding, claddingMeters: r.claddingMeters,
-            hasDecor: r.hasDecor, decorLevel: r.decorLevel, 
-            chandelierSize: r.chandelierSize, chandelierMeters: r.chandelierMeters,
-            artSize: r.artSize, artMeters: r.artMeters,
-            hasAmenities: r.hasAmenities, selectedAmenities: r.selectedAmenities
-          }
+          options: { ...r }
         })))
       },
       files: images
@@ -365,17 +364,13 @@ export const FurnitureRequest = () => {
     else alert("Error submitting request.");
   };
 
-  // --- Render ---
-
   if (success) {
     return (
-      <div className="min-h-screen bg-ukra-navy flex items-center justify-center p-4">
+      <div className="min-h-screen bg-ukra-navy flex items-center justify-center p-4" dir={dir}>
         <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-lg text-center animate-in zoom-in">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-             <Check className="w-10 h-10 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('alert_success_title')}</h2>
-          <p className="text-gray-600 mb-6">{lang==='ar' ? 'تم استلام تفاصيل الغرف والمواصفات بنجاح.' : 'Room configurations received successfully.'}</p>
+          <Check className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2 text-ukra-navy">{t('alert_success_title')}</h2>
+          <p className="text-gray-600 mb-6">{lang==='ar'?'سيقوم فريقنا الهندسي بدراسة التفاصيل وإرسال عرض السعر قريباً.':'Our team will review details and send the quote shortly.'}</p>
           <button onClick={() => window.location.reload()} className="btn-main w-full">{t('btn_new_req')}</button>
         </div>
       </div>
@@ -388,567 +383,486 @@ export const FurnitureRequest = () => {
         
         {/* Header Progress */}
         <div className="mb-8 text-center">
-           <h1 className="text-3xl font-bold text-ukra-navy">{lang==='ar'?'استمارة التوريد المفصلة':'Detailed Furnishing Form'}</h1>
-           <div className="flex items-center justify-center gap-2 mt-4">
-              {[1, 2, 3].map((step) => (
-                 <div key={step} className={`h-2 w-12 rounded-full transition-colors ${currentStep >= step ? 'bg-ukra-gold' : 'bg-gray-200'}`} />
+           <h1 className="text-3xl font-bold text-ukra-navy">{lang==='ar'?'استمارة التوريد الهندسية':'Engineering Furnishing Form'}</h1>
+           <div className="flex justify-center gap-2 mt-4">
+              {[1, 2, 3].map(step => (
+                 <div key={step} className={`h-2 w-12 rounded-full transition-all duration-500 ${currentStep >= step ? 'bg-ukra-gold w-16' : 'bg-gray-200'}`} />
               ))}
            </div>
+           <p className="text-sm text-gray-500 mt-2 font-bold">
+             {currentStep === 1 ? (lang==='ar'?'بيانات العميل':'Client Info') : currentStep === 2 ? (lang==='ar'?'توزيع المساحات':'Room Config') : (lang==='ar'?'المراجعة':'Review')}
+           </p>
         </div>
 
-        {/* Step 1: Client & Type */}
+        {/* STEP 1: CLIENT DETAILED INFO */}
         {currentStep === 1 && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 animate-in fade-in slide-in-from-right">
-             <h2 className="text-xl font-bold text-ukra-navy mb-6">1. {lang==='ar'?'بيانات المشروع':'Project Details'}</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4">
              
-             {/* Client */}
+             {/* 1.1 Personal Data */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div>
-                   <label className="label-std">{t('furn_lbl_name')}</label>
-                   <input value={client.name} onChange={e => setClient({...client, name: e.target.value})} className="input-std" />
+                  <label className="label-std">{t('furn_lbl_name')} <span className="text-red-500">*</span></label>
+                  <input value={client.name} onChange={e => setClient({...client, name: e.target.value})} className="input-std" />
                 </div>
                 <div>
-                   <label className="label-std">{t('auth_phone')}</label>
-                   <input value={client.phone} onChange={e => setClient({...client, phone: e.target.value})} className="input-std" dir="ltr" />
+                  <label className="label-std">{t('auth_phone')} <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <input value={client.phone} onChange={e => setClient({...client, phone: e.target.value})} className="input-std pl-10" dir="ltr" />
+                    <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
+                  </div>
                 </div>
                 <div className="md:col-span-2">
-                   <label className="label-std">{t('auth_email')}</label>
-                   <input value={client.email} onChange={e => setClient({...client, email: e.target.value})} className="input-std" dir="ltr" />
+                  <label className="label-std">{t('auth_email')}</label>
+                  <input value={client.email} onChange={e => setClient({...client, email: e.target.value})} className="input-std" dir="ltr" />
                 </div>
+             </div>
+
+             {/* 1.2 Referral Logic (Flattened) */}
+             <div className="bg-gray-50 p-5 rounded-xl border border-gray-200 mb-8">
+                <h3 className="text-sm font-bold text-ukra-navy mb-4 flex items-center gap-2"><Users className="w-4 h-4"/> {lang==='ar'?'كيف تعرفت علينا؟':'How did you hear about us?'}</h3>
                 
-                {/* Source Selection with Logic */}
-                <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                   <label className="label-std">{t('furn_lbl_source')}</label>
-                   <select 
-                     value={client.source} 
-                     onChange={e => setClient({...client, source: e.target.value, salesCode: '', friendPhone: ''})} 
-                     className="input-std bg-white mb-2"
-                   >
-                      <option value="">{t('opt_select')}</option>
-                      {REFERRAL_SOURCES.map(src => (
-                         <option key={src} value={src}>{tr(src)}</option>
-                      ))}
-                   </select>
-
-                   {/* Conditional Logic: Sales Rep */}
-                   {client.source === 'Sales Representative' && (
-                      <div className="animate-in slide-in-from-top-2 bg-white p-3 rounded border border-ukra-gold">
-                         <label className="label-std text-ukra-navy flex items-center gap-2">
-                            <Users className="w-4 h-4" /> 
-                            {lang==='ar'?'كود المندوب (إجباري)':'Sales Code (Mandatory)'}
-                         </label>
-                         <input 
-                           value={client.salesCode} 
-                           onChange={e => setClient({...client, salesCode: e.target.value})} 
-                           className="input-std" 
-                           placeholder="Ex: UK-105"
-                         />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                   {FLAT_SOURCES.map((src) => (
+                      <div 
+                        key={src.val}
+                        onClick={() => setClient({...client, source: src.val, salesCode: '', friendPhone: ''})}
+                        className={`cursor-pointer p-3 rounded-lg border text-center transition-all ${client.source === src.val ? 'bg-ukra-navy text-white border-ukra-navy shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                      >
+                         <src.icon className={`w-5 h-5 mx-auto mb-1 ${client.source === src.val ? 'text-ukra-gold' : 'text-gray-400'}`} />
+                         <span className="text-xs font-bold">{lang==='ar' ? src.label_ar : src.label_en}</span>
                       </div>
-                   )}
+                   ))}
+                </div>
 
-                   {/* Conditional Logic: Friend */}
-                   {client.source === 'Friend' && (
-                      <div className="animate-in slide-in-from-top-2 bg-white p-3 rounded border border-green-200">
-                         <label className="label-std text-green-700 flex items-center gap-2">
-                            <Gift className="w-4 h-4" /> 
-                            {lang==='ar'?'رقم جوال الصديق (للحصول على خصم)':'Friend Phone (For Discount)'}
-                         </label>
-                         <input 
-                           value={client.friendPhone} 
-                           onChange={e => setClient({...client, friendPhone: e.target.value})} 
-                           className="input-std" 
-                           placeholder="05xxxxxxxx"
-                           dir="ltr"
-                         />
-                      </div>
-                   )}
+                {/* Conditional Inputs */}
+                {client.source === 'Sales Representative' && (
+                  <div className="mt-4 animate-in fade-in">
+                     <label className="label-std text-xs mb-1">{lang==='ar'?'كود المندوب':'Sales Code'}</label>
+                     <input value={client.salesCode} onChange={e => setClient({...client, salesCode: e.target.value})} className="input-std border-ukra-gold bg-yellow-50" placeholder="Ex: SA-102" />
+                  </div>
+                )}
+
+                {client.source === 'Friend' && (
+                  <div className="mt-4 animate-in fade-in">
+                     <label className="label-std text-xs mb-1">{lang==='ar'?'جوال الصديق':'Friend Phone'}</label>
+                     <input value={client.friendPhone} onChange={e => setClient({...client, friendPhone: e.target.value})} className="input-std border-green-500 bg-green-50" placeholder="05xxxxxxxx" />
+                  </div>
+                )}
+             </div>
+
+             {/* 1.3 Project Type Selector */}
+             <div className="grid grid-cols-2 gap-4">
+                <div onClick={() => setCategory('residential')} className={`cursor-pointer p-6 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${category === 'residential' ? 'border-ukra-gold bg-yellow-50 shadow-md' : 'border-gray-100 hover:border-gray-300'}`}>
+                   <Home className={`w-8 h-8 ${category==='residential'?'text-ukra-gold':'text-gray-300'}`} />
+                   <span className={`font-bold ${category==='residential'?'text-ukra-navy':'text-gray-400'}`}>{lang==='ar'?'سكني (فيلا/شقة)':'Residential'}</span>
+                </div>
+                <div onClick={() => setCategory('commercial')} className={`cursor-pointer p-6 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${category === 'commercial' ? 'border-ukra-gold bg-yellow-50 shadow-md' : 'border-gray-100 hover:border-gray-300'}`}>
+                   <Building className={`w-8 h-8 ${category==='commercial'?'text-ukra-gold':'text-gray-300'}`} />
+                   <span className={`font-bold ${category==='commercial'?'text-ukra-navy':'text-gray-400'}`}>{lang==='ar'?'تجاري (فندق/مطعم)':'Commercial'}</span>
                 </div>
              </div>
 
-             {/* Type Selector */}
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div onClick={() => setCategory('residential')} className={`cursor-pointer p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition ${category === 'residential' ? 'border-ukra-gold bg-yellow-50/50' : 'border-gray-200'}`}>
-                   <Home className={`w-12 h-12 ${category === 'residential' ? 'text-ukra-gold' : 'text-gray-400'}`} />
-                   <span className="font-bold text-lg">{lang==='ar'?'مشروع سكني':'Residential'}</span>
-                </div>
-                <div onClick={() => setCategory('commercial')} className={`cursor-pointer p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition ${category === 'commercial' ? 'border-ukra-gold bg-yellow-50/50' : 'border-gray-200'}`}>
-                   <Building className={`w-12 h-12 ${category === 'commercial' ? 'text-ukra-gold' : 'text-gray-400'}`} />
-                   <span className="font-bold text-lg">{lang==='ar'?'مشروع تجاري':'Commercial'}</span>
-                </div>
-             </div>
-
-             {/* Commercial Project Name */}
              {category === 'commercial' && (
                 <div className="mt-6 animate-in slide-in-from-top-2">
-                   <label className="label-std">{lang==='ar'?'اسم المشروع التجاري (إجباري)':'Commercial Project Name (Mandatory)'}</label>
-                   <input 
-                     value={client.projectName} 
-                     onChange={e => setClient({...client, projectName: e.target.value})} 
-                     className="input-std font-bold border-ukra-navy"
-                     placeholder={lang==='ar'?'مثال: فندق الرواسي':'Ex: Al-Rawasi Hotel'}
-                   />
+                   <label className="label-std">{lang==='ar'?'اسم المشروع التجاري':'Project Name'}</label>
+                   <input value={client.projectName} onChange={e => setClient({...client, projectName: e.target.value})} className="input-std" />
                 </div>
              )}
           </div>
         )}
 
-        {/* Step 2: Space Configuration */}
+        {/* STEP 2: GRANULAR ROOM LOGIC */}
         {currentStep === 2 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right">
-             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-ukra-navy">2. {lang==='ar'?'تكوين المساحات':'Space Configuration'}</h2>
-                <button onClick={addRoom} className="btn-main flex items-center gap-2 px-4 py-2 text-sm">
-                   <Plus className="w-4 h-4" /> {lang==='ar'?'إضافة مساحة':'Add Space'}
-                </button>
+          <div className="space-y-6 animate-in fade-in">
+             <div className="flex justify-between items-center sticky top-20 z-10 bg-gray-50/95 backdrop-blur py-2">
+                <h2 className="text-xl font-bold text-ukra-navy">{lang==='ar'?'توزيع المساحات':'Space Config'}</h2>
+                <button onClick={addRoom} className="btn-main flex items-center gap-2 px-4 py-2 text-sm shadow-lg hover:shadow-xl"><Plus className="w-4 h-4"/> {lang==='ar'?'إضافة فراغ':'Add Room'}</button>
              </div>
 
-             {rooms.length === 0 && (
-                <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-gray-300 text-gray-400">
-                   {lang==='ar'?'ابدأ بإضافة المساحات لتحديد المواصفات':'Start by adding spaces to configure specs'}
-                </div>
-             )}
+             {rooms.map((room, index) => (
+                <div key={room.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative transition-all hover:shadow-md">
+                   <button onClick={() => removeRoom(room.id)} className="absolute top-4 left-4 z-10 text-gray-300 hover:text-red-500 transition-colors p-1"><Trash2 className="w-5 h-5"/></button>
 
-             {rooms.map((room, idx) => {
-                const isSleepingRoom = isSleeping(room);
-                const visibleAmenities = getVisibleAmenities(room.type);
-                
-                return (
-                <div key={room.id} className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
                    {/* Room Header */}
-                   <div className="bg-gray-50 p-4 border-b flex flex-wrap md:flex-nowrap gap-4 items-end">
-                      <div className="flex-grow min-w-[200px]">
-                         <label className="text-xs font-bold text-gray-500 mb-1 block">{lang==='ar'?'نوع الغرفة':'Space Type'}</label>
+                   <div className="bg-gray-50 p-4 border-b grid grid-cols-1 md:grid-cols-12 gap-4 items-end pr-12">
+                      <div className="md:col-span-1 flex items-center justify-center font-bold text-gray-300 text-lg">#{index + 1}</div>
+                      <div className="md:col-span-5">
+                         <label className="text-xs font-bold text-gray-500 mb-1 block">{lang==='ar'?'نوع الفراغ':'Room Type'}</label>
                          <select 
                             value={room.type} 
-                            onChange={(e) => updateRoom(room.id, { type: e.target.value })}
-                            className="input-std h-10 font-bold text-ukra-navy"
+                            onChange={e => {
+                               const newConfig = getInitialRoomState(e.target.value, category);
+                               updateRoom(room.id, { ...newConfig, id: room.id, area: room.area, count: room.count }); 
+                            }} 
+                            className="input-std font-bold text-ukra-navy"
                          >
                             {(category === 'residential' ? RES_ROOMS : COM_ROOMS).map(t => <option key={t} value={t}>{tr(t)}</option>)}
                          </select>
                       </div>
-                      <div className="w-24">
-                         <label className="text-xs font-bold text-gray-500 mb-1 block">{lang==='ar'?'العدد':'Count'}</label>
-                         <input type="number" min="1" value={room.count} onChange={(e) => updateRoom(room.id, { count: parseInt(e.target.value) })} className="input-std h-10 text-center" />
+                      <div className="md:col-span-3">
+                         <label className="text-xs font-bold text-gray-500 mb-1 block">{lang==='ar'?'العدد':'Qty'}</label>
+                         <input type="number" min="1" value={room.count} onChange={e => updateRoom(room.id, { count: parseInt(e.target.value) })} className="input-std h-10 text-center" />
                       </div>
-                      <div className="w-32">
-                         <label className="text-xs font-bold text-gray-500 mb-1 block">{lang==='ar'?'المساحة (م٢)':'Area (m²)'}</label>
-                         <input type="number" placeholder="20" value={room.area} onChange={(e) => updateRoom(room.id, { area: e.target.value })} className="input-std h-10 text-center" />
+                      <div className="md:col-span-3">
+                         <label className="text-xs font-bold text-gray-500 mb-1 block">{lang==='ar'?'المساحة (م٢)':'Area'}</label>
+                         <input type="number" value={room.area} onChange={e => updateRoom(room.id, { area: e.target.value })} className="input-std h-10 text-center border-ukra-gold" placeholder="25"/>
                       </div>
-                      <button onClick={() => removeRoom(room.id)} className="p-2 text-red-400 hover:bg-red-50 rounded">
-                         <Trash2 className="w-5 h-5" />
-                      </button>
                    </div>
 
-                   <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                   {/* Room Details Grid */}
+                   <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
                       
-                      {/* A. Wood Section */}
-                      <div className="border rounded-lg">
-                         <SectionHeader 
-                            title={lang==='ar'?'الأثاث الخشبي':'Wood Furniture'} 
-                            icon={Sofa} 
-                            checked={room.hasWood} 
-                            onToggle={() => updateRoom(room.id, { hasWood: !room.hasWood })} 
-                         />
+                      {/* SECTION 1: WOODWORKS (Smart Logic) */}
+                      <div className="border rounded-xl border-gray-100 shadow-sm">
+                         <SectionHeader title={lang==='ar'?'أعمال النجارة (دواليب، أسرة، مكاتب)':'Woodworks'} icon={DoorOpen} checked={room.hasWood} onToggle={() => updateRoom(room.id, { hasWood: !room.hasWood })} />
                          {room.hasWood && (
-                            <div className="p-4 space-y-3 animate-in slide-in-from-top-2">
-                               <label className="label-std text-xs">{lang==='ar'?'نوع الخشب':'Wood Type'}</label>
-                               <select value={room.woodType} onChange={(e) => updateRoom(room.id, { woodType: e.target.value })} className="input-std text-sm">
-                                  <option value="">{t('opt_select')}</option>
-                                  {WOOD_TYPES.map(w => <option key={w.value} value={w.value}>{tr(w.value)}</option>)}
-                               </select>
-                               
-                               {/* --- Specific Room Options --- */}
-                               
-                               {/* 1. Hotel Room/Suite (Commercial) */}
-                               {(room.type.includes('Room') || room.type.includes('Suite')) && !room.type.includes('Kids') && !room.type.includes('Living') && category === 'commercial' && (
-                                  <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50 mt-2">
-                                     <input type="checkbox" checked={room.hasSofa} onChange={(e) => updateRoom(room.id, { hasSofa: e.target.checked, hasCoffeeTable: e.target.checked })} />
-                                     <span className="text-sm font-bold">{lang==='ar'?'إضافة كراسي/كنب مع طاولات ضيافة':'Include Armchairs/Sofa with Coffee Tables'}</span>
-                                  </label>
-                               )}
-
-                               {/* 2. Residential Bedrooms (Master, General) */}
-                               {(room.type === 'Master Bedroom' || room.type === 'General Bedroom') && (
-                                  <div className="grid grid-cols-1 gap-2 mt-2">
-                                     <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50">
-                                        <input type="checkbox" checked={room.hasStudyDesk} onChange={(e) => updateRoom(room.id, { hasStudyDesk: e.target.checked })} />
-                                        <span className="text-sm font-bold">{lang==='ar'?'مكتب عمل وكرسي':'Work Desk & Chair'}</span>
-                                     </label>
-                                     <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50">
-                                        <input type="checkbox" checked={room.hasSofa} onChange={(e) => updateRoom(room.id, { hasSofa: e.target.checked, hasCoffeeTable: e.target.checked })} />
-                                        <span className="text-sm font-bold">{lang==='ar'?'منطقة جلوس مع طاولات':'Seating Area with Tables'}</span>
-                                     </label>
-                                     <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50">
-                                        <input type="checkbox" checked={room.hasTVUnit} onChange={(e) => updateRoom(room.id, { hasTVUnit: e.target.checked })} />
-                                        <span className="text-sm font-bold">{lang==='ar'?'مكتبة تلفزيون':'TV Unit'}</span>
-                                     </label>
-                                  </div>
-                               )}
-
-                               {/* 3. Kids Room */}
-                               {room.type.includes('Kids') && (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                                     <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50">
-                                        <input type="checkbox" checked={room.hasStudyDesk} onChange={(e) => updateRoom(room.id, { hasStudyDesk: e.target.checked })} />
-                                        <span className="text-sm font-bold">{lang==='ar'?'مكتب دراسي وكرسي':'Study Desk & Chair'}</span>
-                                     </label>
-                                     <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50">
-                                        <input type="checkbox" checked={room.hasSofa} onChange={(e) => updateRoom(room.id, { hasSofa: e.target.checked })} />
-                                        <span className="text-sm font-bold">{lang==='ar'?'كنب جلوس':'Sofa Seating'}</span>
-                                     </label>
-                                  </div>
-                               )}
-
-                               {/* 4. Living Room / Majlis / Office */}
-                               {(room.type.includes('Living') || room.type.includes('Majlis')) && (
-                                  <div className="grid grid-cols-1 gap-2 mt-2">
-                                     <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50">
-                                        <input type="checkbox" checked={room.hasTVUnit} onChange={(e) => updateRoom(room.id, { hasTVUnit: e.target.checked })} />
-                                        <span className="text-sm font-bold">{lang==='ar'?'مكتبة تلفزيون':'TV Unit'}</span>
-                                     </label>
-                                     <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50">
-                                        <input type="checkbox" checked={room.hasDisplayCabinet} onChange={(e) => updateRoom(room.id, { hasDisplayCabinet: e.target.checked })} />
-                                        <span className="text-sm font-bold">{lang==='ar'?'وحدة تخزين (دولاب عرض)':'Storage/Display Cabinet'}</span>
-                                     </label>
-                                  </div>
-                               )}
-
-                               {/* 5. Entrance */}
-                               {room.type.includes('Entrance') && (
-                                  <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50 mt-2">
-                                     <input type="checkbox" checked={room.hasEntranceStorage} onChange={(e) => updateRoom(room.id, { hasEntranceStorage: e.target.checked })} />
-                                     <span className="text-sm font-bold">{lang==='ar'?'مساحة تخزين (كونسول/أحذية)':'Storage Space (Console)'}</span>
-                                  </label>
-                               )}
-
-                               {/* 6. Gym */}
-                               {room.type.includes('Gym') && (
-                                  <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50 mt-2">
-                                     <input type="checkbox" checked={room.hasSofa} onChange={(e) => updateRoom(room.id, { hasSofa: e.target.checked })} />
-                                     <span className="text-sm font-bold">{lang==='ar'?'إضافة مقاعد انتظار (جلد)':'Include Waiting Bench (Leather)?'}</span>
-                                  </label>
-                               )}
-
-                               {/* Lockers Logic */}
-                               {(room.type.includes('Gym') || room.type.includes('Showroom')) && (
-                                  <label className="flex items-center gap-2 p-2 border rounded cursor-pointer bg-gray-50 mt-2">
-                                     <input type="checkbox" checked={room.hasLockers} onChange={(e) => updateRoom(room.id, { hasLockers: e.target.checked })} />
-                                     <span className="text-sm font-bold">{lang==='ar'?'خزائن / دواليب عرض':'Lockers / Cabinets?'}</span>
-                                  </label>
-                               )}
-                            </div>
-                         )}
-                      </div>
-
-                      {/* B. Furnishing Section */}
-                      <div className="border rounded-lg">
-                         <SectionHeader 
-                            title={lang==='ar'?'المفروشات والستائر':'Furnishing & Curtains'} 
-                            icon={Scissors} 
-                            checked={room.hasFurnishing} 
-                            onToggle={() => updateRoom(room.id, { hasFurnishing: !room.hasFurnishing })} 
-                         />
-                         {room.hasFurnishing && (
-                            <div className="p-4 space-y-4 animate-in slide-in-from-top-2">
-                               {/* Bedding Level - HIDDEN if not a sleeping room */}
-                               {isSleepingRoom ? (
-                                 <div>
-                                    <label className="label-std text-xs">{lang==='ar'?'مستوى المراتب والمفروشات':'Bedding Quality Level'}</label>
-                                    <div className="grid grid-cols-4 gap-1">
-                                       {QUALITY_LEVELS.map(l => (
-                                          <div 
-                                             key={l} 
-                                             onClick={() => updateRoom(room.id, { furnishLevel: l })}
-                                             className={`text-center py-2 text-xs border rounded cursor-pointer ${room.furnishLevel === l ? 'bg-ukra-navy text-white border-ukra-navy' : 'hover:bg-gray-100'}`}
-                                          >
-                                             {tr(l)}
-                                          </div>
-                                       ))}
-                                    </div>
-                                 </div>
-                               ) : (
-                                 <div className="text-xs text-gray-400 italic mb-2">
-                                    {lang==='ar' ? 'خيارات المراتب غير متاحة لهذا النوع من المساحات.' : 'Bedding options hidden for this space type.'}
-                                 </div>
-                               )}
-
-                               {/* Curtains - Always Available */}
-                               <div className="border-t pt-3">
-                                  <label className="flex items-center gap-2 mb-2 cursor-pointer">
-                                     <input type="checkbox" checked={room.hasCurtains} onChange={(e) => updateRoom(room.id, { hasCurtains: e.target.checked })} />
-                                     <span className="font-bold text-sm text-ukra-navy">{lang==='ar'?'إضافة ستائر':'Include Curtains?'}</span>
-                                  </label>
-                                  {room.hasCurtains && (
-                                     <div className="flex gap-2">
-                                        <select value={room.curtainType} onChange={(e) => updateRoom(room.id, { curtainType: e.target.value })} className="input-std text-sm w-2/3">
-                                           <option value="">{lang==='ar'?'النوع...':'Type...'}</option>
-                                           {CURTAIN_TYPES.map(t => <option key={t} value={t}>{tr(t)}</option>)}
-                                        </select>
-                                        <input 
-                                           type="number" 
-                                           placeholder={lang==='ar'?'متر طولي':'Width (m)'}
-                                           value={room.curtainMeters} 
-                                           onChange={(e) => updateRoom(room.id, { curtainMeters: e.target.value })} 
-                                           className="input-std text-sm w-1/3 text-center"
-                                        />
-                                     </div>
-                                  )}
-                               </div>
-                            </div>
-                         )}
-                      </div>
-
-                      {/* C. Flooring & Cladding */}
-                      <div className="border rounded-lg">
-                         <SectionHeader 
-                            title={lang==='ar'?'الأرضيات والجدران':'Flooring & Cladding'} 
-                            icon={Ruler} 
-                            checked={room.hasFlooring} 
-                            onToggle={() => updateRoom(room.id, { hasFlooring: !room.hasFlooring })} 
-                         />
-                         {room.hasFlooring && (
-                            <div className="p-4 space-y-4 animate-in slide-in-from-top-2">
+                            <div className="p-5 space-y-5 bg-yellow-50/20">
                                <div>
-                                  <label className="label-std text-xs mb-2">{lang==='ar'?'نوع الأرضية':'Flooring Type'}</label>
-                                  <div className="flex flex-wrap gap-2">
-                                     {FLOORING_OPTS.map(opt => (
-                                        <div 
-                                           key={opt}
-                                           onClick={() => {
-                                              const current = room.flooringTypes;
-                                              const newTypes = current.includes(opt) ? current.filter(x => x !== opt) : [...current, opt];
-                                              updateRoom(room.id, { flooringTypes: newTypes });
-                                           }}
-                                           className={`px-3 py-1 rounded-full text-xs border cursor-pointer ${room.flooringTypes.includes(opt) ? 'bg-ukra-gold text-white border-ukra-gold' : 'bg-white'}`}
-                                        >
-                                           {tr(opt)}
-                                        </div>
-                                     ))}
-                                  </div>
-                               </div>
-
-                               <div className="border-t pt-3">
-                                  <label className="flex items-center gap-2 mb-2 cursor-pointer">
-                                     <input type="checkbox" checked={room.hasCladding} onChange={(e) => updateRoom(room.id, { hasCladding: e.target.checked })} />
-                                     <span className="font-bold text-sm text-ukra-navy">{lang==='ar'?'تكسيات جدارية (خشب/بديل)':'Wall Cladding?'}</span>
-                                  </label>
-                                  {room.hasCladding && (
-                                     <input 
-                                        type="number" 
-                                        placeholder={lang==='ar'?'المساحة (م٢)':'Area (sqm)'}
-                                        value={room.claddingMeters} 
-                                        onChange={(e) => updateRoom(room.id, { claddingMeters: e.target.value })} 
-                                        className="input-std text-sm"
-                                     />
-                                  )}
-                               </div>
-                            </div>
-                         )}
-                      </div>
-
-                      {/* D. Decor & Lighting */}
-                      <div className="border rounded-lg">
-                         <SectionHeader 
-                            title={lang==='ar'?'الإضاءة والديكور':'Decor & Lighting'} 
-                            icon={Lamp} 
-                            checked={room.hasDecor} 
-                            onToggle={() => updateRoom(room.id, { hasDecor: !room.hasDecor })} 
-                         />
-                         {room.hasDecor && (
-                            <div className="p-4 space-y-4 animate-in slide-in-from-top-2">
-                               
-                               {/* Decor Level */}
-                               <div>
-                                  <label className="label-std text-xs">{lang==='ar'?'مستوى الديكور':'Decor Level'}</label>
-                                  <select value={room.decorLevel} onChange={(e) => updateRoom(room.id, { decorLevel: e.target.value })} className="input-std text-sm">
+                                  <label className="label-std text-xs">{lang==='ar'?'نوع الخشب الأساسي للمشروع':'Base Wood Material'}</label>
+                                  <select value={room.woodType} onChange={e => updateRoom(room.id, { woodType: e.target.value })} className="input-std bg-white">
                                      <option value="">{t('opt_select')}</option>
-                                     {QUALITY_LEVELS.map(l => <option key={l} value={l}>{tr(l)}</option>)}
+                                     {WOOD_TYPES.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
                                   </select>
                                </div>
 
-                               {/* Chandeliers */}
-                               <div className="border-t pt-3">
-                                  <label className="flex items-center gap-2 text-sm mb-2 font-bold text-ukra-navy">
-                                     <input type="checkbox" checked={room.hasChandelier} onChange={(e) => updateRoom(room.id, { hasChandelier: e.target.checked })} />
-                                     {lang==='ar'?'إضافة ثريا (نجف)':'Chandelier / Pendant'}
-                                  </label>
-                                  {room.hasChandelier && (
-                                     <div className="grid grid-cols-2 gap-2 animate-in slide-in-from-top-1">
-                                        <select 
-                                          value={room.chandelierSize} 
-                                          onChange={(e) => updateRoom(room.id, { chandelierSize: e.target.value })}
-                                          className="input-std text-sm"
-                                        >
-                                           <option value="">{lang==='ar'?'المقاس...':'Size...'}</option>
-                                           {ITEM_SIZES.map(s => <option key={s} value={s}>{tr(s)}</option>)}
-                                        </select>
-                                        
-                                        {room.chandelierSize === 'Custom' && (
-                                          <input 
-                                            type="number"
-                                            placeholder={lang==='ar'?'العرض (م)':'Width (m)'}
-                                            value={room.chandelierMeters}
-                                            onChange={(e) => updateRoom(room.id, { chandelierMeters: e.target.value })}
-                                            className="input-std text-sm"
-                                          />
-                                        )}
+                               {isBedroom(room.type) && (
+                                  <div className="animate-in fade-in space-y-4">
+                                     <div className="p-4 bg-white rounded border border-yellow-100">
+                                        <div className="text-sm font-bold text-ukra-navy mb-3 flex items-center gap-2"><Scissors className="w-4 h-4"/> {lang==='ar'?'تخصيص الدواليب (أساسي)':'Wardrobes (Standard)'}</div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                           <div>
+                                              <label className="text-[10px] text-gray-500 font-bold block mb-1">آلية الفتح</label>
+                                              <select value={room.wardrobeType} onChange={e => updateRoom(room.id, { wardrobeType: e.target.value as any })} className="input-std text-sm h-9">
+                                                 {WARDROBE_MECHS.map(m => <option key={m.value} value={m.value}>{lang==='ar'?m.label_ar:m.label_en}</option>)}
+                                              </select>
+                                           </div>
+                                           <div>
+                                              <label className="text-[10px] text-gray-500 font-bold block mb-1">نوع الواجهة</label>
+                                              <select value={room.wardrobeFacade} onChange={e => updateRoom(room.id, { wardrobeFacade: e.target.value as any })} className="input-std text-sm h-9">
+                                                 {WARDROBE_FACES.map(f => <option key={f.value} value={f.value}>{lang==='ar'?f.label_ar:f.label_en}</option>)}
+                                              </select>
+                                           </div>
+                                        </div>
                                      </div>
-                                  )}
-                                  {/* Custom Size Warning */}
-                                  {room.hasChandelier && room.chandelierSize === 'Custom' && parseFloat(room.chandelierMeters) > 3 && (
-                                     <div className="mt-2 text-xs text-orange-600 bg-orange-50 p-2 rounded flex items-start gap-1">
-                                        <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                                        {lang==='ar' 
-                                          ? 'تنبيه: المقاس كبير جداً، تأكد من تناسبه مع مساحة الغرفة.'
-                                          : 'Warning: Size is very large, ensure it fits room area.'}
-                                     </div>
-                                  )}
-                               </div>
-                               
-                               {/* Artworks */}
-                               <div className="border-t pt-3">
-                                  <label className="flex items-center gap-2 text-sm mb-2 font-bold text-ukra-navy">
-                                     <input type="checkbox" checked={room.hasArt} onChange={(e) => updateRoom(room.id, { hasArt: e.target.checked })} />
-                                     {lang==='ar'?'لوحات فنية':'Artworks'}
-                                  </label>
-                                  {room.hasArt && (
-                                     <div className="grid grid-cols-2 gap-2 animate-in slide-in-from-top-1">
-                                        <select 
-                                          value={room.artSize} 
-                                          onChange={(e) => updateRoom(room.id, { artSize: e.target.value })}
-                                          className="input-std text-sm"
-                                        >
-                                           <option value="">{lang==='ar'?'المقاس...':'Size...'}</option>
-                                           {ITEM_SIZES.map(s => <option key={s} value={s}>{tr(s)}</option>)}
-                                        </select>
-                                        
-                                        {room.artSize === 'Custom' && (
-                                          <input 
-                                            type="number"
-                                            placeholder={lang==='ar'?'العرض (م)':'Width (m)'}
-                                            value={room.artMeters}
-                                            onChange={(e) => updateRoom(room.id, { artMeters: e.target.value })}
-                                            className="input-std text-sm"
-                                          />
-                                        )}
-                                     </div>
-                                  )}
-                               </div>
 
+                                     {!isKidsRoom(room.type) && (
+                                        <div className="p-4 bg-white rounded border border-yellow-100">
+                                           <div className="text-sm font-bold text-ukra-navy mb-3 flex items-center gap-2"><LayoutDashboard className="w-4 h-4"/> {lang==='ar'?'نوع ظهر السرير':'Headboard'}</div>
+                                           <select value={room.headboardType} onChange={e => updateRoom(room.id, { headboardType: e.target.value as any })} className="input-std text-sm">
+                                              {HEADBOARD_STYLES.map(s => <option key={s.value} value={s.value}>{lang==='ar'?s.label_ar:s.label_en}</option>)}
+                                           </select>
+                                        </div>
+                                     )}
+                                  </div>
+                               )}
+
+                               <div className="grid grid-cols-2 gap-3 pt-2">
+                                  {/* TV Unit (Option everywhere) */}
+                                  <label className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${room.hasTVUnit ? 'bg-ukra-navy text-white border-ukra-navy' : 'bg-white hover:bg-gray-50'}`}>
+                                     <input type="checkbox" className="hidden" checked={room.hasTVUnit} onChange={e => updateRoom(room.id, { hasTVUnit: e.target.checked })} />
+                                     <span className="text-xs font-bold">{lang==='ar'?'وحدة تلفزيون':'TV Unit'}</span>
+                                     {room.hasTVUnit && <Check className="w-3 h-3 ml-auto"/>}
+                                  </label>
+
+                                  {/* Desk: Mandatory in Office, Optional in Bedroom/Kids */}
+                                  {isOfficeArea(room.type) ? (
+                                     <div className="flex items-center gap-2 p-2 rounded border bg-gray-200 cursor-not-allowed">
+                                        <span className="text-xs font-bold text-gray-500">{lang==='ar'?'مكتب عمل (أساسي)':'Desk (Standard)'}</span>
+                                        <Check className="w-3 h-3 ml-auto text-gray-500"/>
+                                     </div>
+                                  ) : (
+                                     <label className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${room.hasStudyDesk ? 'bg-ukra-navy text-white border-ukra-navy' : 'bg-white hover:bg-gray-50'}`}>
+                                        <input type="checkbox" className="hidden" checked={room.hasStudyDesk} onChange={e => updateRoom(room.id, { hasStudyDesk: e.target.checked })} />
+                                        <span className="text-xs font-bold">{lang==='ar'?'مكتب عمل/دراسة':'Desk'}</span>
+                                        {room.hasStudyDesk && <Check className="w-3 h-3 ml-auto"/>}
+                                     </label>
+                                  )}
+
+                                  {isEntrance(room.type) && (
+                                     <label className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${room.hasEntranceConsole ? 'bg-ukra-navy text-white border-ukra-navy' : 'bg-white hover:bg-gray-50'}`}>
+                                        <input type="checkbox" className="hidden" checked={room.hasEntranceConsole} onChange={e => updateRoom(room.id, { hasEntranceConsole: e.target.checked })} />
+                                        <span className="text-xs font-bold">{lang==='ar'?'كونسول مدخل':'Console'}</span>
+                                        {room.hasEntranceConsole && <Check className="w-3 h-3 ml-auto"/>}
+                                     </label>
+                                  )}
+                                   {isBedroom(room.type) && !isKidsRoom(room.type) && (
+                                     <div className="flex items-center gap-2 p-2 rounded border bg-gray-200 cursor-not-allowed">
+                                        <span className="text-xs font-bold text-gray-500">{lang==='ar'?'تسريحة (أساسي)':'Dresser (Standard)'}</span>
+                                        <Check className="w-3 h-3 ml-auto text-gray-500"/>
+                                     </div>
+                                  )}
+                               </div>
                             </div>
                          )}
                       </div>
 
-                      {/* E. Amenities (Context Aware) */}
-                      {category === 'commercial' && (
-                         <div className="border rounded-lg md:col-span-2 border-blue-100 bg-blue-50/30">
-                            <SectionHeader 
-                               title={lang==='ar'?'مستلزمات الضيافة':'Hotel Amenities'} 
-                               icon={Hotel} 
-                               checked={room.hasAmenities} 
-                               onToggle={() => updateRoom(room.id, { hasAmenities: !room.hasAmenities })} 
-                            />
-                            {room.hasAmenities && (
-                               <div className="p-4 flex flex-wrap gap-3 animate-in slide-in-from-top-2">
-                                  {visibleAmenities.length === 0 ? (
-                                     <span className="text-sm text-gray-400 italic">No amenities available for this space type.</span>
-                                  ) : visibleAmenities.map(item => (
-                                     <label key={item} className="flex items-center gap-2 bg-white px-3 py-2 rounded border cursor-pointer hover:border-ukra-gold">
-                                        <input 
-                                           type="checkbox" 
-                                           checked={room.selectedAmenities.includes(item)}
-                                           onChange={() => {
-                                              const current = room.selectedAmenities;
-                                              const newItems = current.includes(item) ? current.filter(x => x !== item) : [...current, item];
-                                              updateRoom(room.id, { selectedAmenities: newItems });
-                                           }}
-                                        />
-                                        <span className="text-xs font-bold">{tr(item)}</span>
-                                     </label>
-                                  ))}
+                      {/* SECTION 2: SEATING ZONE (Smart Logic) */}
+                      <div className="border rounded-xl border-gray-100 shadow-sm">
+                         <SectionHeader 
+                            title={lang==='ar'?'منطقة الجلوس والكنب':'Seating Zone'} 
+                            icon={Sofa} 
+                            checked={room.needsSeatingZone} 
+                            // Lock toggle for Living Rooms (it's mandatory)
+                            locked={isLivingArea(room.type)}
+                            onToggle={() => updateRoom(room.id, { needsSeatingZone: !room.needsSeatingZone })} 
+                         />
+                         
+                         {room.needsSeatingZone && (
+                            <div className="p-5 space-y-4">
+                               {isLivingArea(room.type) ? (
+                                  <div className="animate-in fade-in">
+                                     <p className="text-xs text-gray-500 mb-3">{lang==='ar'?'تجهيز أساسي، اختر النوع:':'Standard setup, select type:'}</p>
+                                     <div className="grid grid-cols-2 gap-3">
+                                        <div onClick={() => updateRoom(room.id, { sofaType: 'L-Shape' })} className={`p-3 rounded border cursor-pointer text-center ${room.sofaType === 'L-Shape' ? 'bg-ukra-navy text-white' : 'hover:bg-gray-50'}`}>
+                                           <div className="text-xs font-bold">{lang==='ar'?'كنب زاوية (L)':'L-Shape'}</div>
+                                        </div>
+                                        <div onClick={() => updateRoom(room.id, { sofaType: 'Separate Set' })} className={`p-3 rounded border cursor-pointer text-center ${room.sofaType === 'Separate Set' ? 'bg-ukra-navy text-white' : 'hover:bg-gray-50'}`}>
+                                           <div className="text-xs font-bold">{lang==='ar'?'طقم منفصل':'Separate Set'}</div>
+                                        </div>
+                                     </div>
+                                  </div>
+                               ) : (
+                                  <div className="animate-in fade-in space-y-3">
+                                      <p className="text-xs text-gray-500 mb-2">{lang==='ar'?'إضافة اختيارية:':'Optional Add-on:'}</p>
+                                      <label className="flex items-center gap-2 p-2 rounded border bg-gray-50 cursor-pointer">
+                                         <input type="checkbox" checked={room.hasArmchair} onChange={e => updateRoom(room.id, { hasArmchair: e.target.checked })} />
+                                         <span className="text-xs font-bold">{lang==='ar'?'كرسي مفرد (Armchair)':'Armchair'}</span>
+                                      </label>
+                                      <label className="flex items-center gap-2 p-2 rounded border bg-gray-50 cursor-pointer">
+                                         <input type="checkbox" checked={room.hasSofa} onChange={e => updateRoom(room.id, { hasSofa: e.target.checked })} />
+                                         <span className="text-xs font-bold">{lang==='ar'?'كنب ثنائي/ثلاثي':'Sofa'}</span>
+                                      </label>
+                                  </div>
+                               )}
+                            </div>
+                         )}
+                      </div>
+
+                      {/* SECTION 3: DECOR (New) */}
+                      <div className="border rounded-xl border-gray-100 shadow-sm">
+                         <SectionHeader title={lang==='ar'?'الديكور والإضاءة':'Decor & Lighting'} icon={Lamp} checked={room.hasDecor} onToggle={() => updateRoom(room.id, { hasDecor: !room.hasDecor })} />
+                         {room.hasDecor && (
+                            <div className="p-5 space-y-5">
+                               {/* Chandeliers */}
+                               <div>
+                                  <label className="flex items-center gap-2 mb-2 font-bold text-sm text-ukra-navy">
+                                     <input type="checkbox" checked={room.hasChandelier} onChange={e => updateRoom(room.id, { hasChandelier: e.target.checked })} /> 
+                                     {lang==='ar'?'ثريا / نجف':'Chandelier'}
+                                  </label>
+                                  {room.hasChandelier && (
+                                     <div className="flex gap-2 animate-in fade-in">
+                                        <select value={room.chandelierSize} onChange={e => updateRoom(room.id, { chandelierSize: e.target.value as any })} className="input-std text-xs h-9 flex-grow">
+                                           {CHANDELIER_SIZES.map(s => <option key={s} value={s}>{tr(s)}</option>)}
+                                        </select>
+                                        {room.chandelierSize === 'Custom' && (
+                                           <input type="number" placeholder="m" value={room.chandelierMeters} onChange={e => updateRoom(room.id, { chandelierMeters: e.target.value })} className="input-std text-xs h-9 w-20 text-center"/>
+                                        )}
+                                     </div>
+                                  )}
                                </div>
-                            )}
-                         </div>
-                      )}
+
+                               {/* Artworks */}
+                               <div className="border-t pt-3">
+                                  <label className="flex items-center gap-2 mb-2 font-bold text-sm text-ukra-navy">
+                                     <input type="checkbox" checked={room.hasArt} onChange={e => updateRoom(room.id, { hasArt: e.target.checked })} /> 
+                                     {lang==='ar'?'لوحات فنية':'Artworks'}
+                                  </label>
+                                  {room.hasArt && (
+                                     <div className="flex gap-2 animate-in fade-in">
+                                        <select value={room.artType} onChange={e => updateRoom(room.id, { artType: e.target.value as any })} className="input-std text-xs h-9 flex-grow">
+                                           {ART_TYPES.map(t => <option key={t} value={t}>{tr(t)}</option>)}
+                                        </select>
+                                        <input type="number" placeholder="m²" value={room.artMeters} onChange={e => updateRoom(room.id, { artMeters: e.target.value })} className="input-std text-xs h-9 w-20 text-center"/>
+                                     </div>
+                                  )}
+                               </div>
+                            </div>
+                         )}
+                      </div>
+
+                      {/* SECTION 4: AMENITIES (Restored & Smart) */}
+                      <div className="border rounded-xl border-gray-100 shadow-sm">
+                         <SectionHeader title={lang==='ar'?'مستلزمات الضيافة (Amenities)':'Amenities'} icon={Coffee} checked={room.hasAmenities} onToggle={() => updateRoom(room.id, { hasAmenities: !room.hasAmenities })} />
+                         {room.hasAmenities && (
+                            <div className="p-5">
+                               <div className="flex flex-wrap gap-2">
+                                  {AMENITY_LIST.map(item => {
+                                     // Logic: Highlight if standard
+                                     const isStandard = (item === 'Safe Box' && isBedroom(room.type));
+                                     return (
+                                       <label key={item} className={`px-3 py-2 rounded border cursor-pointer text-xs font-bold transition flex items-center gap-2 ${room.selectedAmenities.includes(item) || isStandard ? 'bg-ukra-navy text-white border-ukra-navy' : 'bg-white text-gray-600 hover:border-ukra-gold'}`}>
+                                          <input 
+                                             type="checkbox" 
+                                             className="hidden" 
+                                             checked={room.selectedAmenities.includes(item) || isStandard} 
+                                             onChange={() => {
+                                                if (isStandard) return; // Cannot uncheck standard items
+                                                const curr = room.selectedAmenities;
+                                                updateRoom(room.id, { selectedAmenities: curr.includes(item) ? curr.filter(x => x !== item) : [...curr, item] });
+                                             }} 
+                                          />
+                                          {tr(item)}
+                                          {isStandard && <Check className="w-3 h-3"/>}
+                                       </label>
+                                     );
+                                  })}
+                               </div>
+                            </div>
+                         )}
+                      </div>
+
+                      {/* SECTION 5: FURNISHING (Standard) */}
+                      <div className="border rounded-xl border-gray-100 shadow-sm">
+                         <SectionHeader title={lang==='ar'?'المفروشات والستائر':'Furnishing'} icon={Scissors} checked={room.hasFurnishing} onToggle={() => updateRoom(room.id, { hasFurnishing: !room.hasFurnishing })} />
+                         {room.hasFurnishing && (
+                            <div className="p-5 space-y-5">
+                               {isBedroom(room.type) && (
+                                  <div>
+                                     <label className="text-xs font-bold block mb-1 text-gray-600">{lang==='ar'?'مستوى المراتب والبياضات':'Bedding Level'}</label>
+                                     <div className="flex rounded border overflow-hidden">
+                                        {QUALITY_LEVELS.map(l => (
+                                           <div key={l} onClick={() => updateRoom(room.id, { furnishLevel: l })} className={`flex-1 text-center py-2 text-xs cursor-pointer transition-colors ${room.furnishLevel === l ? 'bg-ukra-navy text-white' : 'hover:bg-gray-100'}`}>
+                                              {tr(l).split(' ')[0]}
+                                           </div>
+                                        ))}
+                                     </div>
+                                  </div>
+                               )}
+
+                               <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                                  <label className="flex items-center gap-2 mb-3 font-bold text-sm text-ukra-navy border-b pb-2">
+                                     <input type="checkbox" checked={room.hasCurtains} onChange={e => updateRoom(room.id, { hasCurtains: e.target.checked })} /> 
+                                     {lang==='ar'?'الستائر (Curtains)':'Curtains'}
+                                  </label>
+                                  {room.hasCurtains && (
+                                     <div className="grid grid-cols-3 gap-2 animate-in fade-in">
+                                        <div className="col-span-2">
+                                           <label className="text-[10px] text-gray-500 font-bold block mb-1">النوع</label>
+                                           <select value={room.curtainType} onChange={e => updateRoom(room.id, { curtainType: e.target.value })} className="input-std text-xs h-9">
+                                              {CURTAIN_TYPES.map(t => <option key={t} value={t}>{tr(t)}</option>)}
+                                           </select>
+                                        </div>
+                                        <div>
+                                           <label className="text-[10px] text-gray-500 font-bold block mb-1">الأمتار</label>
+                                           <input type="number" placeholder="m" value={room.curtainMeters} onChange={e => updateRoom(room.id, { curtainMeters: e.target.value })} className="input-std text-xs h-9 text-center"/>
+                                        </div>
+                                     </div>
+                                  )}
+                               </div>
+                            </div>
+                         )}
+                      </div>
 
                    </div>
                 </div>
-                );
-             })}
+             ))}
           </div>
         )}
 
-        {/* Step 3: Review */}
+        {/* STEP 3: REVIEW & SUBMIT */}
         {currentStep === 3 && (
-           <div className="p-8 bg-white rounded-2xl shadow-lg text-center animate-in fade-in slide-in-from-right">
-              <div className="w-16 h-16 bg-ukra-navy rounded-full flex items-center justify-center mx-auto mb-6 text-ukra-gold shadow-lg">
-                 <Sparkles className="w-8 h-8" />
+           <div className="bg-white rounded-2xl shadow-lg p-8 animate-in fade-in slide-in-from-bottom-4">
+              <div className="text-center mb-8">
+                 <Sparkles className="w-12 h-12 text-ukra-gold mx-auto mb-3" />
+                 <h2 className="text-2xl font-bold text-ukra-navy">{lang==='ar'?'المراجعة والاعتماد':'Review & Submit'}</h2>
+                 <p className="text-gray-500 text-sm">يرجى مراجعة البيانات قبل الإرسال النهائي</p>
               </div>
-              <h2 className="text-2xl font-bold text-ukra-navy mb-4">{lang==='ar'?'مراجعة واعتماد':'Review & Submit'}</h2>
               
-              <div className="bg-gray-50 p-6 rounded-xl text-start max-w-2xl mx-auto border border-gray-200 mb-8 space-y-4">
-                 <div className="flex justify-between border-b pb-2">
-                    <span className="text-gray-500">{lang==='ar'?'إجمالي الغرف':'Total Rooms'}</span>
-                    <span className="font-bold text-ukra-navy">{rooms.length}</span>
-                 </div>
-                 <div className="flex justify-between border-b pb-2">
-                    <span className="text-gray-500">{lang==='ar'?'نوع المشروع':'Project Type'}</span>
-                    <span className="font-bold text-ukra-navy uppercase">{category === 'residential' ? (lang==='ar'?'سكني':'Residential') : (lang==='ar'?'تجاري':'Commercial')}</span>
-                 </div>
-                 <div className="space-y-2">
-                    <p className="text-xs text-gray-400 font-bold uppercase">{lang==='ar'?'المساحات المضافة:':'Configured Spaces:'}</p>
-                    {rooms.map((r, i) => (
-                       <div key={i} className="text-sm flex justify-between bg-white p-2 rounded border">
-                          <span>{tr(r.type)} <span className="text-xs text-gray-400">({r.area}m²)</span></span>
-                          <span className="font-mono bg-gray-100 px-2 rounded">x{r.count}</span>
-                       </div>
-                    ))}
-                 </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                  
-                 <div className="mt-4">
-                    <label className="label-std">{lang==='ar'?'ملاحظات إضافية':'Additional Notes'}</label>
-                    <textarea 
-                       className="input-std h-24" 
-                       placeholder={lang==='ar'?'طلبات خاصة...':'Special requests...'}
-                       value={notes} 
-                       onChange={e => setNotes(e.target.value)}
-                    />
-                 </div>
+                 {/* Project Summary */}
+                 <div className="md:col-span-2 space-y-6">
+                    <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                       <h3 className="font-bold text-ukra-navy mb-4 flex items-center gap-2 border-b pb-2">
+                          <Users className="w-4 h-4"/> ملخص العميل
+                       </h3>
+                       <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div><span className="text-gray-500 block text-xs">الاسم</span><span className="font-bold">{client.name}</span></div>
+                          <div><span className="text-gray-500 block text-xs">الجوال</span><span className="font-bold" dir="ltr">{client.phone}</span></div>
+                          <div><span className="text-gray-500 block text-xs">المصدر</span><span className="font-bold">{tr(client.source)}</span></div>
+                          <div><span className="text-gray-500 block text-xs">نوع المشروع</span><span className="font-bold">{category === 'residential' ? 'سكني' : 'تجاري'}</span></div>
+                       </div>
+                    </div>
 
-                 <div className="mt-4">
-                    <label className="label-std flex items-center gap-2"><Camera className="w-4 h-4"/> {lang==='ar'?'مرفقات (مخطط/صور)':'Attachments'}</label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                       {images.map((img, i) => (
-                          <div key={i} className="w-16 h-16 rounded overflow-hidden border"><img src={`data:image/png;base64,${img.base64}`} className="w-full h-full object-cover"/></div>
-                       ))}
-                       <label className="w-16 h-16 border-2 border-dashed rounded flex items-center justify-center cursor-pointer hover:bg-gray-100">
-                          <Plus className="w-6 h-6 text-gray-400"/>
-                          <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
-                       </label>
+                    <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                       <h3 className="font-bold text-ukra-navy mb-4 flex items-center gap-2 border-b pb-2">
+                          <Home className="w-4 h-4"/> ملخص الغرف ({rooms.length})
+                       </h3>
+                       <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                          {rooms.map((r, i) => (
+                             <div key={i} className="flex justify-between items-center bg-white p-3 rounded border border-gray-100 shadow-sm">
+                                <div className="flex items-center gap-3">
+                                   <div className="bg-ukra-navy text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold">{i+1}</div>
+                                   <div>
+                                      <div className="font-bold text-sm text-ukra-navy">{tr(r.type)}</div>
+                                      <div className="text-xs text-gray-500 flex gap-2">
+                                         {r.hasWood && <span>نجارة</span>}
+                                         {r.needsSeatingZone && <span>جلسة</span>}
+                                         {r.hasDecor && <span>ديكور</span>}
+                                      </div>
+                                   </div>
+                                </div>
+                                <div className="text-right">
+                                   <div className="font-bold text-sm">{r.area} م²</div>
+                                   <div className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">x{r.count}</div>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
                     </div>
                  </div>
+
+                 {/* Attachments & Notes */}
+                 <div className="space-y-6">
+                    <div>
+                       <label className="label-std flex items-center gap-2 mb-2">
+                          <Camera className="w-4 h-4"/> {lang==='ar'?'المخططات والصور':'Attachments'}
+                       </label>
+                       <div className="grid grid-cols-3 gap-2">
+                          {images.map((img, i) => (
+                             <div key={i} className="relative aspect-square rounded border overflow-hidden group">
+                                <img src={`data:image/png;base64,${img.base64}`} className="w-full h-full object-cover"/>
+                                <button onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3"/></button>
+                             </div>
+                          ))}
+                          <label className="aspect-square border-2 border-dashed border-gray-300 rounded hover:bg-gray-50 hover:border-ukra-gold cursor-pointer flex flex-col items-center justify-center transition-colors">
+                             <Upload className="w-6 h-6 text-gray-400 mb-1"/>
+                             <span className="text-[10px] text-gray-500 font-bold">{lang==='ar'?'رفع ملف':'Upload'}</span>
+                             <input type="file" multiple className="hidden" onChange={handleImageUpload} accept="image/*" />
+                          </label>
+                       </div>
+                    </div>
+
+                    <div>
+                       <label className="label-std mb-2">{lang==='ar'?'ملاحظات إضافية':'Notes'}</label>
+                       <textarea className="input-std h-32 resize-none" placeholder="..." value={notes} onChange={e => setNotes(e.target.value)} />
+                    </div>
+                 </div>
+
               </div>
            </div>
         )}
 
         {/* Footer Navigation */}
-        <div className="mt-8 flex justify-between">
-           {currentStep > 1 && (
-              <button onClick={() => setCurrentStep(curr => curr - 1)} className="px-6 py-3 rounded-lg text-gray-600 font-bold bg-white border border-gray-200 hover:bg-gray-50">
-                 {lang==='ar'?'سابق':'Back'}
-              </button>
-           )}
-           <div className="mr-auto"></div>
-           {currentStep < 3 ? (
-              <button onClick={validateStep} className="btn-main flex items-center gap-2">
-                 {lang==='ar'?'التالي':'Next'} <ChevronRight className={`w-5 h-5 ${dir==='rtl'?'rotate-180':''}`} />
-              </button>
-           ) : (
-              <button onClick={handleSubmit} disabled={isSubmitting} className="btn-main flex items-center gap-2">
-                 {isSubmitting ? <Loader2 className="animate-spin" /> : <Check className="w-5 h-5" />}
-                 {lang==='ar'?'إرسال الطلب':'Submit Request'}
-              </button>
-           )}
+        <div className="mt-8 flex justify-between items-center bg-white p-4 rounded-xl shadow border border-gray-100 sticky bottom-4 z-20">
+           <div>
+              {currentStep > 1 && (
+                 <button onClick={() => setCurrentStep(curr => curr - 1)} className="px-6 py-2.5 rounded-lg font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors flex items-center gap-2">
+                    {dir==='rtl' ? <ChevronRight className="w-4 h-4"/> : <ChevronLeft className="w-4 h-4"/>} {lang==='ar'?'رجوع':'Back'}
+                 </button>
+              )}
+           </div>
+           <div>
+              {currentStep < 3 ? (
+                 <button onClick={validateStep} className="btn-main px-8 py-2.5 flex items-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                    {lang==='ar'?'التالي':'Next'} {dir==='rtl' ? <ChevronLeft className="w-5 h-5"/> : <ChevronRight className="w-5 h-5"/>}
+                 </button>
+              ) : (
+                 <button onClick={handleSubmit} disabled={isSubmitting} className={`px-8 py-3 rounded-lg font-bold text-white flex items-center gap-3 shadow-lg transition-all ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : <Check className="w-5 h-5"/>} {lang==='ar'?'إرسال الطلب':'Submit'}
+                 </button>
+              )}
+           </div>
         </div>
 
       </div>
