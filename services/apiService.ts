@@ -52,8 +52,9 @@ export const fetchAllUsers = async (): Promise<any> => {
   return { success: true, users: data.map((u: any) => ({...u, name: u.full_name})) };
 };
 
-export const fetchUserRole = async (email: string): Promise<any> => {
-  const { data, error } = await supabase.from('profiles').select('role, full_name, phone').eq('email', email).single();
+// [تعديل هام] البحث بالمعرف بدلاً من الإيميل لتجنب خطأ 400
+export const fetchUserRole = async (userId: string): Promise<any> => {
+  const { data, error } = await supabase.from('profiles').select('role, full_name, phone').eq('id', userId).single();
   if (error) return { success: false };
   return { success: true, role: data.role, name: data.full_name, phone: data.phone };
 };
@@ -96,41 +97,36 @@ export const getProducts = async (category?: string): Promise<ProductDB[]> => {
   return data as ProductDB[];
 };
 
-// --- Orders (Migration from Google Script to Supabase Orders Table) ---
+// --- Orders ---
 
 export const fetchAllOrders = async (): Promise<any> => {
   const { data, error } = await supabase
     .from('orders')
-    .select(`*, profiles:client_id(full_name, email, phone)`)
+    .select(`*, profiles:client_id(full_name, phone)`) // أزلنا email لأنه قد لا يكون موجوداً في profiles
     .order('created_at', { ascending: false });
 
   if (error) return { success: false, message: error.message };
 
-  // Map to frontend OrderData interface
   const orders = data.map((o: any) => ({
     id: o.id,
     type: o.service_type,
     status: o.status,
     client: o.profiles?.full_name || 'Unknown',
-    email: o.profiles?.email,
     phone: o.profiles?.phone,
     date: new Date(o.created_at).toLocaleDateString(),
     amount: o.amount ? `${o.amount} SAR` : 'Pending',
-    details: o.details // JSONB
+    details: o.details 
   }));
 
   return { success: true, orders };
 };
 
-export const fetchClientOrders = async (email: string): Promise<any> => {
-  // First get UUID from profiles
-  const { data: profile } = await supabase.from('profiles').select('id').eq('email', email).single();
-  if (!profile) return { success: false, message: 'User not found' };
-
+// [تعديل هام] استخدام المعرف مباشرة لجلب الطلبات
+export const fetchClientOrders = async (userId: string): Promise<any> => {
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .eq('client_id', profile.id)
+    .eq('client_id', userId)
     .order('created_at', { ascending: false });
 
   if (error) return { success: false };
@@ -146,11 +142,9 @@ export const fetchClientOrders = async (email: string): Promise<any> => {
   return { success: true, orders };
 };
 
-// --- Form Submissions (Writes to Supabase) ---
+// --- Form Submissions ---
 
 export const submitDesignRequest = async (payload: DesignRequestPayload): Promise<boolean> => {
-  // 1. Upload Images to Storage
-  // 2. Create Order Record
   try {
     const { error } = await supabase.from('orders').insert({
       id: `DES-${Date.now()}`,
@@ -193,24 +187,14 @@ export const submitFeasibilityStudy = async (payload: FeasibilityPayload): Promi
   }
 };
 
-// --- Deprecated / Mock Functions for Backward Compatibility ---
-
+// --- Deprecated / Mock Functions ---
 export const verifyClientOTP = async (email: string, otp: string, data?: any): Promise<{ success: boolean; user: { name: string; role: string; email: string; phone?: string }; message?: string }> => ({ success: true, user: { name: 'Client', role: 'CLIENT', email, phone: data?.phone }, message: '' }); 
-
 export const updateClientProfile = async (email: string, updates: any): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-
 export const deleteClientAccount = async (email: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-
 export const adminUpdateUserRole = async (email: string, role: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-
 export const adminDeleteUser = async (email: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-
 export const uploadOrderFile = async (folderUrl: string, file: File, orderId: string, notifyEmail?: string, uploaderName?: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-
 export const addOrderNote = async (orderId: string, note: string, author: string, notifyEmail?: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-
 export const fetchOrderDetails = async (folderUrl: string, orderId: string): Promise<{ success: boolean; data: { files: any[]; logs: any[] }; message?: string }> => ({ success: true, data: { files: [], logs: [] }, message: '' });
-
 export const deleteOrderFile = async (fileId: string, orderId: string, userName: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-
 export const submitBooking = async (payload: BookingPayload): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });

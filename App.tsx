@@ -13,7 +13,6 @@ import { ClientAuth } from './pages/ClientAuth';
 import { Home } from './pages/Home';
 import { DesignRequest } from './pages/DesignRequest';
 import { FeasibilityStudy } from './pages/FeasibilityStudy';
-import { FurnitureRequest } from './pages/FurnitureRequest';
 import { WoodCatalog } from './pages/WoodCatalog';
 import { BookAppointment } from './pages/BookAppointment';
 import { HotelAdvisor } from './pages/HotelAdvisor'; // Imported
@@ -42,7 +41,6 @@ const AppContent = () => {
         <Route path="/design-request" element={<Layout><DesignRequest /></Layout>} />
         <Route path="/store" element={<Layout><FurnitureStore /></Layout>} />
         {/* Updated: Use new FurnitureRequest page instead of basic form if preferred */}
-        <Route path="/furniture-request" element={<Layout><FurnitureRequest /></Layout>} />
         <Route path="/furniture-quote" element={<Layout><FurnitureQuoteForm /></Layout>} />
         <Route path="/feasibility-study" element={<Layout><FeasibilityStudy /></Layout>} />
         <Route path="/checkout" element={<Layout><Checkout /></Layout>} />

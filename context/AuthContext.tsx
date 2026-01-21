@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { MOCK_USERS } from '../constants';
@@ -7,7 +6,7 @@ import { fetchUserRole } from '../services/apiService';
 interface AuthContextType {
   user: User | null;
   login: (userData: User) => void;
-  adminLogin: (username: string, pin: string) => boolean; // Keep for legacy PIN login compatibility
+  adminLogin: (username: string, pin: string) => boolean; 
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -29,10 +28,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(parsedUser);
 
         // 2. Background check: Sync role with server
-        // Only if it's not a legacy mock admin (who has no email usually, or we skip for them)
-        if (parsedUser.email && !MOCK_USERS[parsedUser.username]) {
+        // [تعديل هام] استخدام ID بدلاً من Email للتحقق من الدور
+        if (parsedUser.id && !MOCK_USERS[parsedUser.username]) {
            try {
-             const res = await fetchUserRole(parsedUser.email);
+             const res = await fetchUserRole(parsedUser.id);
              if (res && res.success) {
                 // If role changed in sheet, update it here
                 if (res.role !== parsedUser.role || res.name !== parsedUser.name) {
@@ -67,7 +66,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const foundUser = MOCK_USERS[username];
     if (foundUser && foundUser.pin === pin) {
       const adminUser: User = {
-        email: username + '@ukra.sa', // Fake email for admin
+        email: username + '@ukra.sa',
         role: foundUser.role,
         name: foundUser.name,
         username: foundUser.username

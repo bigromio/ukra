@@ -1,295 +1,187 @@
-
-
+// --- Auth & User Types ---
 export enum UserRole {
   OWNER = 'OWNER',
   MANAGER = 'MANAGER',
   EMPLOYEE = 'EMPLOYEE',
-  CLIENT = 'CLIENT',
+  CLIENT = 'CLIENT'
 }
 
 export interface User {
   id?: string;
-  username?: string;
-  email?: string;
+  email: string;
   role: UserRole;
   name: string;
+  username?: string; // Legacy support
+  pin?: string;      // Legacy support
   phone?: string;
   points_balance?: number;
-  avatar_url?: string;
 }
 
-// --- Hotel Advisor / Database Types ---
-
-export interface HotelCriteriaDB {
-  id: number;
-  star_rating: number;
-  criteria_name_ar: string; 
-  criteria_name_en: string; 
-  facility_type?: string;
-  classification_level?: string;
-  is_mandatory?: boolean;
-  property_type?: string; 
-  category?: string; // e.g. furnishing, safety, regulatory
-  criterion_number?: number; // Critical for matching
-  classification?: 'Regulatory' | 'Furnishing';
-  related_tags?: string[];
-  
-  // UI Helper Properties (Computed)
-  isRegulatory?: boolean;
-  isMandatory?: boolean;
-}
-
+// --- Product & Store Types ---
 export interface ProductDB {
   id: number;
-  sku: string;
+  sku: string | null;
   name_ar: string;
-  name_en: string;
-  description_ar?: string;
-  image_url?: string;
+  name_en?: string | null;
+  category: string | null;
+  description_ar?: string | null;
+  description_en?: string | null;
+  price_ready_med?: number | null; // السعر المتوسط (الافتراضي)
+  price_ready_eco?: number | null; // السعر الاقتصادي
+  price_ready_vip?: number | null; // السعر الفاخر
+  image_url?: string | null;
+  is_active: boolean;
+  stock_quantity?: number;
   
-  // Pricing
-  price_ready_med: number; 
-  price_ready_vip: number; 
-  price_ready_eco?: number; 
-  
-  // Categorization
-  category?: string;
-  boq_group?: string;
-  min_star_rating?: number;
-  criterion_number?: number; 
-  
-  // Smart Linking
-  related_tags?: string[];
-  is_active?: boolean;
-
-  // --- أضف هذه الأسطر الجديدة فقط ---
-  valid_unit_types?: string;      // للربط بنوع الغرفة (King, Suite...)
-  required_facility?: string;     // للربط بالمرفق (Pool, Gym...)
-  calc_type?: 'per_unit' | 'per_sqm' | 'per_facility'; // طريقة الحساب
-  qty_multiplier?: number;        // معامل التكرار (PAR)
+  // خصائص المستشار الفندقي الجديدة
+  criterion_number?: string | null; // رقم المعيار المرتبط
+  calc_type?: 'per_unit' | 'per_sqm' | 'per_facility' | null; // طريقة الحساب
+  required_facility?: string | null; // المرفق المطلوب (Pool, Gym...)
+  valid_unit_types?: string | null;  // أنواع الغرف الصالحة (Single, Suite...)
+  supply_source?: 'UKRA' | 'CONTRACTOR' | string | null; // مصدر التوريد
+  qty_multiplier?: number; // معامل الكمية
 }
 
-export interface PackageItemDB {
-  id: number;
-  package_id: number;
-  quantity: number;
-  products: ProductDB; 
-}
+// --- Hotel Advisor & Unit Types (UPDATED) ---
 
-export interface PackageDB {
-  id: number;
-  name_ar: string;
-  name_en: string;
-  star_rating: number;
-  classification_level?: string; 
-  total_price?: number;
-  package_items: PackageItemDB[];
-}
+// 1. القائمة الشاملة لأنواع الوحدات (غرف + مرافق)
+export type UnitType = 
+  // الغرف السكنية (Residential)
+  | 'Single' | 'Double' | 'King' | 'Twin' | 'Triple' | 'Suite' | 'Studio' | 'Apartment' | 'Villa'
+  // المرافق العامة (Facilities)
+  | 'Reception' | 'Lobby' | 'Restaurant' | 'CoffeeShop' | 'MeetingRoom' 
+  | 'Gym' | 'KidsArea' | 'PrayerRoom' | 'Spa' | 'Pool' | 'Other';
 
-export type HotelUnitType = 'Single' | 'Double' | 'Twin' | 'Triple' | 'Suite' | 'Apartment';
-export type FacilityType = 'Pool' | 'Gym' | 'Restaurant' | 'Meeting' | 'Prayer' | 'Kids' | 'General';
-// --- استبدل واجهة UnitDefinition القديمة بهذه النسخة الموحدة ---
-export type UnitTypeUnion = 
-  | 'Single' | 'Double' | 'King' | 'Suite' | 'Studio'  // أنواع المستشار الفندقي الجديد
-  | 'Twin' | 'Triple' | 'Apartment' | 'Villa';         // أنواع قديمة للموقع
+// 2. تصنيف المرافق (للمنطق البرمجي)
+export type FacilityCategory = 'Pool' | 'Gym' | 'Restaurant' | 'Meeting' | 'Prayer' | 'Kids' | 'General';
 
+// 3. تعريف الوحدة الموحد (Unified Unit Definition)
 export interface UnitDefinition {
   id: string;
   name: string;
   
-  // وحدنا النوع هنا ليعمل مع الاثنين (استخدمنا type بدلاً من unitType)
-  type: UnitTypeUnion; 
+  // النوع الموحد (يشمل الغرف والمرافق)
+  type: UnitType; 
   
   quantity: number;
 
-  // جعلنا هذه الخصائص اختيارية (?) لكي لا يحدث خطأ في المستشار الفندقي الذي لا يحتاجها
+  // --- خصائص اختيارية للتوافق مع الأكواد القديمة ---
+  // جعلناها (?) لأن "المطعم" أو "الاستقبال" لا يحتوي على غرف نوم أو مطابخ
   bedrooms?: number; 
   bathrooms?: number;
   hasLivingRoom?: boolean;
   hasDining?: boolean;
   kitchenType?: 'None' | 'Minibar' | 'Kitchenette' | 'Full';
   
-  // خاصية للتوافق العكسي (إذا كان الكود القديم يطلب unitType)
-  unitType?: UnitTypeUnion; 
+  // خاصية للتوافق العكسي (في حال كان هناك كود قديم يعتمد على هذا الاسم)
+  unitType?: UnitType; 
 }
 
-// --- أضف هذا القسم الجديد (Logic Types) ---
+// 4. معايير الوزارة (Criteria)
+export interface HotelCriteriaDB {
+  id: number;
+  classification: string | null; // 'Regulatory' | 'Furnishing'
+  category: string | null;
+  criteria_name_ar: string;
+  criterion_number: string | null;
+  star_1?: string | null;
+  star_2?: string | null;
+  star_3?: string | null;
+  star_4?: string | null;
+  star_5?: string | null;
+  star_5_lux?: string | null;
+  is_active: boolean;
+  
+  // حقول محسوبة في الواجهة (ليست في قاعدة البيانات مباشرة)
+  isMandatory?: boolean;
+  isRegulatory?: boolean;
+}
 
-// 1. خيارات المرافق (Checkboxes)
-export type SelectedFacilities = {
-  hasPool: boolean;
-  hasGym: boolean;
-  hasRestaurant: boolean;
-  hasMeeting: boolean;
-  hasKidsArea: boolean;
-};
+// 5. هيكل عرض السعر (BOQ Structure)
+export interface BOQItem {
+  sku: string | null;
+  name_ar: string;
+  category: string;
+  qty: number;
+  unitPrice: number;
+  totalPrice: number;
+  isMandatory: boolean;
+  criterion_number?: string | null;
+  notes?: string;
+}
 
-// 2. تنظيم مجموعات عرض السعر (مهم جداً للنتيجة النهائية)
 export interface BOQGroup {
   title: string;
-  totalCost: number;
   items: BOQItem[];
-  mandatoryMet: number;
+  totalCost: number;
   totalMandatory: number;
+  mandatoryMet: number;
 }
 
-// Updated for Smart BOQ Engine
-// تحديث BOQItem
-export interface BOQItem {
-  id?: number; // جعلناه اختياري
-  sku: string;
-  name_ar: string;
-  name_en?: string; // اختياري
-  
-  unitPrice: number;
-  qty: number;
-  totalPrice: number;
-  
-  // خصائص جديدة
-  isMandatory: boolean; 
-  category: string;     
-  notes?: string;       
-  criterion_number?: number;
-
-  // خصائص قديمة (اتركها للتوافق)
-  boq_group?: string;
-  isCompliant?: boolean;
-  complianceDetail?: string;
-  optionLabel?: 'Value' | 'Med' | 'VIP';
-  image_url?: string;
-}
-
-// تحديث HotelProposal (أضف groups)
 export interface HotelProposal {
   totalEstimated: number;
   totalKeys: number;
-  groups: BOQGroup[]; // <--- هذا هو السطر الأهم الذي كان ناقصاً
-  breakdown: BOQItem[];
+  groups: BOQGroup[];
+  breakdown: BOQItem[]; // Legacy support
 }
 
-// ... (Keep other existing interfaces like OrderData, etc. if needed for other pages)
-export interface OrderData {
+// --- Order & Dashboard Types ---
+export interface Order {
   id: string;
   type: string;
-  status: string;
+  status: 'Pending' | 'Processing' | 'Completed' | 'Draft';
   client: string;
-  email?: string;
   phone?: string;
   date: string;
-  amount?: string;
-  driveFolderUrl?: string;
+  amount: string;
   details?: any;
-  location?: string;
-  budget?: string;
-  scope?: string;
-  style?: string;
-  colors?: string;
-  areaSize?: string;
-  projectType?: string;
-  items?: any[];
-}
-
-export interface DriveFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  url: string;
-  size?: number;
-  date?: string;
-}
-
-export interface OrderLog {
-  orderId: string;
-  timestamp: string;
-  user: string;
-  type: 'Note' | 'File' | 'Delete';
-  content: string;
 }
 
 export interface Task {
   id: number;
-  assigned_to: string;
   title: string;
+  assigned_to: string;
+  status: 'Pending' | 'In Progress' | 'Done';
+  due_date: string;
   is_completed: boolean;
-  is_critical: boolean;
-  points_value: number;
-  due_date?: string;
 }
 
 export interface InventoryItem {
   id: number;
   item_name: string;
-  type: 'machine' | 'material';
-  status: 'active' | 'warning' | 'stopped' | 'ok' | 'low';
   quantity: number;
-  threshold: number;
-  next_service_date?: string;
-  unit?: string;
-}
-
-export interface BookingPayload {
-  name: string;
-  phone: string;
-  email: string;
-  service: string;
-  date: string;
-  time: string;
-  reason: string;
-  timestamp: string;
-}
-
-export interface DesignRequestPayload {
-  lang: string;
-  referralSource: string;
-  salesCode: string;
-  fullName: string;
-  phone: string;
-  email: string;
   location: string;
-  projectName: string;
-  propertyType: string;
-  area: string;
-  scope: string;
+  status: 'Good' | 'Needs Repair' | 'Damaged';
+  last_checked: string;
+}
+
+// --- Form Payloads ---
+export interface DesignRequestPayload {
+  unitType: string;
+  area: number;
   style: string;
-  colors: string;
-  prefColors: string;
-  dislikes: string;
   budget: string;
   notes: string;
-  images: any[];
+  files: string[];
 }
 
 export interface FurnitureQuotePayload {
-  lang: string;
-  type: 'Furniture Request';
-  client: { name: string; phone: string; email: string; source: string; };
-  project: any;
-  files: { name: string; base64: string }[];
+  items: Array<{ name: string; qty: number; notes?: string }>;
+  contact: { name: string; phone: string };
 }
 
 export interface FeasibilityPayload {
-  type: 'feasibility';
-  location: string;
-  budget: any; 
-  areaSize: any;
+  city: string;
+  landArea: number;
   projectType: string;
-  contactName: string;
-  contactEmail: string;
-  timestamp?: string;
+  budget: string;
 }
 
-export interface FurnitureItem {
-  id: string;
-  name: string;
-  quantity: number;
-  specs: string;
-  imageBase64: string | null;
-}
-
-export interface ClientOrder {
-  id: string;
-  type: string;
-  status: string;
+export interface BookingPayload {
+  service: string;
   date: string;
-  details: string;
+  time: string;
+  name: string;
+  phone: string;
+  notes?: string;
 }
