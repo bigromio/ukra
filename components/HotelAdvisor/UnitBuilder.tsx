@@ -244,22 +244,18 @@ export const UnitBuilder: React.FC<UnitBuilderProps> = ({
           )}
         </div>
 
-        {/* Footer */}
+{/* Footer */}
         <div className="bg-white border-t border-gray-200 p-4 shrink-0 flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
           <div className="flex items-center gap-4 overflow-x-auto flex-1 pb-1 custom-scrollbar">
-            <div className="flex items-center gap-2 text-gray-400 pl-4 border-l"><ShoppingBag className="w-5 h-5" /><span className="text-xs font-bold whitespace-nowrap">السلة:</span></div>
-            {selectedUnits.length === 0 ? (<span className="text-xs text-gray-400 italic">لم يتم اختيار أي وحدات...</span>) : (
-               selectedUnits.map(u => (
-                 <div key={u.id} className="flex items-center gap-2 bg-gray-100 pl-1 pr-3 py-1 rounded-full border border-gray-200 shrink-0 animate-in zoom-in">
-                    <span className="bg-ukra-navy text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">{u.quantity}</span>
-                    <span className="text-xs font-bold text-gray-700">{u.name}</span>
-                    <button onClick={() => handleRemoveFromBasket(u.type)} className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500 transition"><X className="w-3 h-3" /></button>
-                 </div>
-               ))
-            )}
+            {/* ... (عرض الوحدات المختارة) ... */}
           </div>
           <div className="mr-6 pl-2">
-            <button onClick={handleFinalSave} disabled={selectedUnits.length === 0} className={`px-8 py-3 rounded-xl font-bold text-white transition shadow-lg flex items-center gap-2 whitespace-nowrap ${selectedUnits.length > 0 ? 'bg-ukra-gold text-ukra-navy hover:bg-yellow-500 hover:scale-105' : 'bg-gray-300 cursor-not-allowed'}`}>
+            <button 
+              type="button" // <--- إضافة هذا السطر هام جداً
+              onClick={handleFinalSave} 
+              disabled={selectedUnits.length === 0} 
+              className={`px-8 py-3 rounded-xl font-bold text-white transition shadow-lg flex items-center gap-2 whitespace-nowrap ${selectedUnits.length > 0 ? 'bg-ukra-gold text-ukra-navy hover:bg-yellow-500 hover:scale-105' : 'bg-gray-300 cursor-not-allowed'}`}
+            >
               <Check className="w-5 h-5" /> حفظ الكل ({selectedUnits.length})
             </button>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AdvisorQuestion, UserAnswer, UnitDefinition, AdvisorPhase } from '../../types';
 import { 
   CheckCircle2, AlertTriangle, ArrowLeft, 
@@ -10,114 +10,113 @@ import { UnitBuilder } from './UnitBuilder';
 interface QuizEngineProps {
   questions: AdvisorQuestion[];
   phase: AdvisorPhase;
+  mandatoryUnitTypes: string[];
   onPhaseComplete: (answers: UserAnswer[]) => void;
   onBack: () => void;
 }
 
 export const QuizEngine: React.FC<QuizEngineProps> = ({ 
-  questions, phase, onPhaseComplete, onBack 
+  questions, phase, mandatoryUnitTypes, onPhaseComplete, onBack 
 }) => {
-  // --- State ---
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [feedback, setFeedback] = useState<'SUCCESS' | 'WARNING' | null>(null);
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
 
-  // السؤال الحالي
   const currentQuestion = questions[currentIndex];
-  
-  // نسبة التقدم في هذه المرحلة
   const progress = questions.length > 0 ? ((currentIndex) / questions.length) * 100 : 0;
 
-  // عند تغيير المرحلة، نعيد تصفير العدادات
+  // إعادة التعيين عند تغيير المرحلة
   useEffect(() => {
     setCurrentIndex(0);
     setAnswers([]);
     setFeedback(null);
+    setIsUnitModalOpen(false);
   }, [phase]);
 
-  // --- Handlers ---
-
-  const handleAnswer = (value: boolean) => {
-    // 1. هل الإجابة تحقق الامتثال؟
-    // إذا كان إلزامي: نعم = ممتثل، لا = غير ممتثل
-    // إذا كان اختياري: نعم = ممتثل (نقاط)، لا = ممتثل (لكن بدون نقاط)
-    const isCompliant = currentQuestion.isMandatory ? value === true : true;
-
-    // 2. تحديد نوع التنبيه
-    if (currentQuestion.isMandatory && !value) {
-      // إجابة "لا" على سؤال إلزامي -> تحذير
-      setFeedback('WARNING');
-      return; // نوقف التنقل لنعطي المستخدم فرصة للتراجع أو التأكيد
-    } 
-
-    // إجابة إيجابية أو اختيارية -> نجاح
-    if (value) {
-        setFeedback('SUCCESS');
-    }
+  // --- المنطق الأساسي للحفظ والانتقال ---
+  
+  // نستخدم useCallback لضمان ثبات الدالة
+  const proceedToNext = useCallback((newAnswersList: UserAnswer[]) => {
+    // إخفاء أي تنبيهات
+    setFeedback(null);
     
-    // حفظ وانتقال
-    saveAndNext(value, isCompliant);
-  };
+    if (currentIndex < questions.length - 1) {
+      // الانتقال للسؤال التالي
+      setCurrentIndex(prev => prev + 1);
+    } else {
+      // انتهت الأسئلة -> إرسال الإجابات للأب
+      onPhaseComplete(newAnswersList);
+    }
+  }, [currentIndex, questions.length, onPhaseComplete]);
 
-  const saveAndNext = (value: any, isCompliant: boolean) => {
+  const saveAndNext = (value: any, isCompliant: boolean, delay: number = 500) => {
     const newAnswer: UserAnswer = {
       questionId: currentQuestion.id,
       value: value,
       isCompliant: isCompliant
     };
 
-    setAnswers(prev => [...prev, newAnswer]);
+    // تحديث الإجابات محلياً
+    const updatedAnswers = [...answers, newAnswer];
+    setAnswers(updatedAnswers);
 
-    // تأخير بسيط لرؤية التنبيه (إن وجد) ثم الانتقال
+    // تأخير بسيط لعرض رسالة النجاح ثم الانتقال
     setTimeout(() => {
-      setFeedback(null);
-      if (currentIndex < questions.length - 1) {
-        setCurrentIndex(prev => prev + 1);
-      } else {
-        // انتهت الأسئلة في هذه المرحلة -> نرسل الإجابات للأب
-        onPhaseComplete([...answers, newAnswer]);
-      }
-    }, feedback === 'SUCCESS' ? 1000 : 300); // تأخير أطول قليلاً للنجاح
+      proceedToNext(updatedAnswers);
+    }, delay);
   };
 
-  // معالجة إضافة الوحدات (من UnitBuilder)
-  const handleUnitSave = (unit: UnitDefinition) => {
+  // --- معالجة الإجابات ---
+
+  // 1. إجابة نعم/لا
+  const handleAnswer = (value: boolean) => {
+    if (currentQuestion.isMandatory && !value) {
+      setFeedback('WARNING'); // إجابة مرفوضة (لأنه إلزامي)
+      return; 
+    } 
+
+    if (value) setFeedback('SUCCESS');
+    saveAndNext(value, true, value ? 1000 : 300); // تأخير أطول قليلاً عند النجاح
+  };
+
+  // 2. إجابة اختيار الوحدات (Unit Builder)
+  const handleUnitSave = (units: UnitDefinition[]) => {
+    // 1. إغلاق النافذة فوراً
     setIsUnitModalOpen(false);
-    setFeedback('SUCCESS');
-    // نعتبر إضافة الوحدة بمثابة إجابة "نعم" + بيانات الوحدة
-    saveAndNext([unit], true); 
+
+    // 2. التحقق من وجود وحدات
+    if (units.length > 0) {
+      // 3. عرض رسالة نجاح وانتقال
+      setFeedback('SUCCESS');
+      saveAndNext(units, true, 800);
+    } else {
+      // إذا عاد بدون وحدات وكان السؤال إلزامياً
+      if (currentQuestion.isMandatory) {
+        setFeedback('WARNING');
+      }
+    }
   };
 
-  // بيانات رأس الصفحة حسب المرحلة
+  // --- الواجهة ---
+
   const getPhaseHeader = () => {
     switch(phase) {
-      case 'CONSTRUCTION': 
-        return { title: 'المرحلة الأولى: التأسيس العمراني', icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' };
-      case 'REGULATORY': 
-        return { title: 'المرحلة الثانية: التأسيس النظامي', icon: ShieldCheck, color: 'text-green-600', bg: 'bg-green-50' };
-      case 'FURNISHING': 
-        return { title: 'المرحلة الثالثة: الفرش والتجهيز', icon: Sofa, color: 'text-amber-600', bg: 'bg-amber-50' };
-      default: 
-        return { title: 'الاستبيان', icon: HelpCircle, color: 'text-gray-600', bg: 'bg-gray-50' };
+      case 'CONSTRUCTION': return { title: 'المرحلة الأولى: التأسيس العمراني', icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' };
+      case 'REGULATORY': return { title: 'المرحلة الثانية: التأسيس النظامي', icon: ShieldCheck, color: 'text-green-600', bg: 'bg-green-50' };
+      case 'FURNISHING': return { title: 'المرحلة الثالثة: الفرش والتجهيز', icon: Sofa, color: 'text-amber-600', bg: 'bg-amber-50' };
+      default: return { title: 'الاستبيان', icon: HelpCircle, color: 'text-gray-600', bg: 'bg-gray-50' };
     }
   };
 
   const header = getPhaseHeader();
 
-  // حالة التحميل أو عدم وجود أسئلة
-  if (!currentQuestion) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <p className="text-gray-500">جاري تحميل أسئلة المرحلة...</p>
-      </div>
-    );
-  }
+  if (!currentQuestion) return <div className="p-10 text-center text-gray-400">جاري تحميل الأسئلة...</div>;
 
   return (
     <div className="max-w-3xl mx-auto py-4 px-4 font-cairo animate-in fade-in slide-in-from-right duration-500">
       
-      {/* 1. Header & Progress */}
+      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-5">
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${header.bg} ${header.color}`}>
@@ -133,22 +132,14 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({
             </div>
           </div>
         </div>
-        
-        {/* Progress Bar */}
         <div className="h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-          <div 
-            className="h-full bg-gradient-to-l from-ukra-gold to-ukra-navy transition-all duration-500 ease-out" 
-            style={{ width: `${progress}%` }} 
-          />
+          <div className="h-full bg-gradient-to-l from-ukra-gold to-ukra-navy transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
-      {/* 2. Question Card */}
+      {/* Question Card */}
       <div className="bg-white rounded-[32px] p-8 md:p-10 shadow-xl border border-gray-100 relative overflow-hidden min-h-[420px] flex flex-col justify-center">
         
-        {/* Background Decoration */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-full -mr-16 -mt-16 opacity-50 pointer-events-none"></div>
-
         {/* Question Text */}
         <div className="mb-10 text-center relative z-10">
           <h3 className="text-2xl md:text-3xl font-bold text-gray-800 leading-relaxed mb-4">
@@ -166,64 +157,39 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({
           {currentQuestion.answerType === 'UNIT_SELECTION' ? (
              <button 
                onClick={() => setIsUnitModalOpen(true)}
-               className="col-span-2 bg-ukra-navy text-white py-5 rounded-2xl font-bold text-lg hover:bg-ukra-navy/90 transition shadow-lg hover:shadow-xl flex items-center justify-center gap-3 group"
+               className="col-span-2 bg-ukra-navy text-white py-5 rounded-2xl font-bold text-lg hover:bg-ukra-navy/90 transition shadow-lg flex items-center justify-center gap-3"
              >
-               <Building2 className="w-6 h-6 group-hover:scale-110 transition-transform" />
-               إضافة الوحدات المطلوبة
+               <Building2 className="w-6 h-6" /> إضافة وتحديد الوحدات
              </button>
           ) : (
             <>
-              <button 
-                onClick={() => handleAnswer(false)}
-                className="py-5 rounded-2xl font-bold text-lg border-2 border-gray-100 text-gray-500 hover:border-red-100 hover:bg-red-50 hover:text-red-600 transition flex items-center justify-center gap-2 group"
-              >
-                <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                لا / غير متوفر
+              <button onClick={() => handleAnswer(false)} className="py-5 rounded-2xl font-bold text-lg border-2 border-gray-100 text-gray-500 hover:border-red-100 hover:bg-red-50 hover:text-red-600 transition flex items-center justify-center gap-2">
+                <X className="w-5 h-5" /> لا / غير متوفر
               </button>
-              <button 
-                onClick={() => handleAnswer(true)}
-                className="py-5 rounded-2xl font-bold text-lg bg-ukra-navy text-white hover:bg-ukra-navy/90 transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group"
-              >
-                <Check className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                نعم / متوفر
+              <button onClick={() => handleAnswer(true)} className="py-5 rounded-2xl font-bold text-lg bg-ukra-navy text-white hover:bg-ukra-navy/90 transition shadow-lg flex items-center justify-center gap-2">
+                <Check className="w-5 h-5" /> نعم / متوفر
               </button>
             </>
           )}
         </div>
 
-        {/* 3. Feedback Overlay (Toast) */}
+        {/* Feedback Overlay */}
         {feedback && (
           <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center animate-in fade-in duration-200">
             {feedback === 'SUCCESS' ? (
               <div className="text-center animate-in zoom-in duration-300">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 shadow-sm">
-                  <CheckCircle2 className="w-10 h-10" />
-                </div>
+                <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-green-800">ممتاز!</h3>
-                <p className="text-green-600 font-medium mt-2">تم تسجيل الامتثال لهذا البند ✅</p>
+                <p className="text-green-600 font-medium mt-2">تم تسجيل الامتثال ✅</p>
               </div>
             ) : (
               <div className="text-center animate-in zoom-in duration-300 px-6 max-w-md">
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 shadow-sm">
-                  <AlertTriangle className="w-10 h-10" />
-                </div>
+                <AlertTriangle className="w-20 h-20 text-red-600 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-red-800 mb-2">تنبيه هام ⚠️</h3>
-                <p className="text-red-600 font-medium mb-6 leading-relaxed">
-                  هذا الاشتراط <b>إلزامي</b> للحصول على الترخيص. عدم توفيره سيؤثر على تقييم المشروع.
-                </p>
+                <p className="text-red-600 font-medium mb-6">هذا الاشتراط إلزامي للحصول على الترخيص.</p>
                 <div className="flex gap-3 justify-center">
-                   <button 
-                     onClick={() => saveAndNext(false, false)} // تأكيد الرفض (تجاوز)
-                     className="px-6 py-3 rounded-xl border border-gray-300 text-gray-500 font-bold hover:bg-gray-50 transition"
-                   >
-                     تجاوز (غير متوفر)
-                   </button>
-                   <button 
-                     onClick={() => setFeedback(null)} // عودة
-                     className="px-6 py-3 rounded-xl bg-ukra-navy text-white font-bold hover:bg-ukra-navy/90 transition shadow-md"
-                   >
-                     تراجع (سأقوم بتوفيره)
-                   </button>
+                   <button onClick={() => saveAndNext(false, false, 300)} className="px-6 py-2 border rounded-lg hover:bg-gray-50">تجاوز</button>
+                   <button onClick={() => setFeedback(null)} className="px-6 py-2 bg-ukra-navy text-white rounded-lg">تراجع</button>
                 </div>
               </div>
             )}
@@ -232,14 +198,8 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({
 
       </div>
 
-      {/* Footer Navigation */}
       <div className="mt-8 text-center">
-        <button 
-          onClick={onBack} 
-          className="text-gray-400 font-bold hover:text-ukra-navy flex items-center justify-center gap-2 mx-auto transition text-sm py-2 px-4 hover:bg-gray-100 rounded-lg"
-        >
-          <ArrowLeft className="w-4 h-4" /> خروج مؤقت / عودة
-        </button>
+        <button onClick={onBack} className="text-gray-400 hover:text-ukra-navy text-sm flex items-center justify-center gap-2 mx-auto"><ArrowLeft className="w-4 h-4" /> خروج مؤقت</button>
       </div>
 
       {/* Unit Builder Modal */}
@@ -247,9 +207,9 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({
         <UnitBuilder 
           onSave={handleUnitSave} 
           onCancel={() => setIsUnitModalOpen(false)} 
+          mandatoryTypes={mandatoryUnitTypes} // تمرير الإلزاميات
         />
       )}
-
     </div>
   );
 };
