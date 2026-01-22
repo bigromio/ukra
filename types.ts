@@ -185,3 +185,27 @@ export interface BookingPayload {
   phone: string;
   notes?: string;
 }
+// أضف هذه الأنواع في ملف types/index.ts أو في بداية advisorService.ts
+
+export type AdvisorPhase = 'CONSTRUCTION' | 'REGULATORY' | 'FURNISHING';
+
+export interface AdvisorQuestion {
+  id: string; // criterion_number
+  phase: AdvisorPhase;
+  text: string; // نص السؤال (مثلاً: هل وفرت مواقف سيارات؟)
+  requirement: string; // نص الاشتراط الأصلي (لتذكير العميل)
+  isMandatory: boolean; // هل هو إلزامي؟
+  points?: number; // النقاط (للاختياري)
+  
+  // نوع الإجابة المطلوبة
+  answerType: 'YES_NO' | 'NUMBER' | 'UNIT_SELECTION'; 
+  
+  // لربط السؤال بالمنتجات أو الوحدات
+  relatedUnitType?: string; 
+}
+
+export interface UserAnswer {
+  questionId: string;
+  value: any; // true/false, or number, or unit array
+  isCompliant: boolean; // هل الإجابة حققت الشرط؟
+}

@@ -1,270 +1,278 @@
 import { supabase } from '../lib/supabase';
-import { UnitDefinition, HotelCriteriaDB, HotelProposal, BOQGroup, BOQItem } from '../types';
+import { AdvisorPhase, AdvisorQuestion } from '../types';
 
-// واجهة مساعدة لنتائج التحقق
-export interface ValidationResult {
-  missingMandatory: string[]; // مرافق إلزامية مفقودة (مثل: مطعم لفندق 3 نجوم)
-  regulatoryAlerts: string[]; // تنبيهات تنظيمية (مثل: توفير سعودة، تراخيص)
-  areaAlerts: string[];       // تنبيهات مساحات (تحتاج لمنطق خاص)
-}
+/**
+ * خريطة توزيع فئات الاشتراطات على مراحل المشروع الثلاث
+ */
+const CATEGORY_MAP: Record<string, AdvisorPhase> = {
+  // --- مرحلة البناء والتشطيب (Construction) ---
+  'المظهر الخارجي': 'CONSTRUCTION',
+  'مواقف السيارات': 'CONSTRUCTION',
+  'المصاعد': 'CONSTRUCTION',
+  'الممرات والسلالم': 'CONSTRUCTION',
+  'مساحة الغرف': 'CONSTRUCTION',
+  'مساحة الشقق': 'CONSTRUCTION',
+  'دورة المياه': 'CONSTRUCTION',
+  'المطبخ': 'CONSTRUCTION',
+  'ذوي الاحتياجات': 'CONSTRUCTION',
+  'الاستقبال': 'CONSTRUCTION',
+  'البهو': 'CONSTRUCTION',
+  'المرافق العامة': 'CONSTRUCTION',
+  'الإضاءة': 'CONSTRUCTION', // التأسيس
+  'التهوية': 'CONSTRUCTION',
+  'التكييف': 'CONSTRUCTION',
 
-// ------------------------------------------------------------------
-// 1. جلب المعايير وفلترتها حسب النجوم
-// ------------------------------------------------------------------
-export const fetchHotelCriteria = async (stars: number): Promise<HotelCriteriaDB[]> => {
+  // --- المرحلة النظامية والتشغيلية (Regulatory) ---
+  'المتطلبات العامة': 'REGULATORY',
+  'الموظفون': 'REGULATORY',
+  'اللغات': 'REGULATORY',
+  'السلامة': 'REGULATORY',
+  'النظافة العامة': 'REGULATORY',
+  'الصيانة': 'REGULATORY',
+  'البيئة': 'REGULATORY',
+  'الموارد البشرية': 'REGULATORY',
+  'الجودة': 'REGULATORY',
+  'موقع إلكتروني': 'REGULATORY',
+  'التقنية': 'REGULATORY',
+
+  // --- مرحلة الفرش والتأثيث (Furnishing) ---
+  'الأثاث': 'FURNISHING',
+  'الأسرة': 'FURNISHING',
+  'المراتب': 'FURNISHING',
+  'أغطية الأسرة': 'FURNISHING',
+  'الوسائد': 'FURNISHING',
+  'الستائر': 'FURNISHING',
+  'الكهرباء': 'FURNISHING', // الأفياش
+  'إلكترونيات': 'FURNISHING',
+  'المناشف': 'FURNISHING',
+  'العناية الشخصية': 'FURNISHING',
+  'أدوات': 'FURNISHING',
+  'المشروبات': 'FURNISHING',
+  'اللوحات': 'FURNISHING',
+  'الإكسسوارات': 'FURNISHING'
+};
+
+/**
+ * دالة جلب الأسئلة وتحويلها إلى كائنات تفاعلية
+ */
+export const getAdvisorQuestions = async (stars: number): Promise<AdvisorQuestion[]> => {
   const { data, error } = await supabase
     .from('hotel_criteria')
     .select('*')
     .eq('is_active', true)
     .order('criterion_number', { ascending: true });
 
-  if (error) {
-    console.error("Error fetching criteria:", error);
+  if (error || !data) {
+    console.error("Error fetching questions:", error);
     return [];
   }
 
-  // تحديد اسم العمود بناءً على عدد النجوم (star_1, star_2...)
-  const starCol = `star_${stars}` as keyof HotelCriteriaDB;
-  
-  return data.map(item => {
-    const rawVal = item[starCol];
-    const val = String(rawVal || '').trim().toLowerCase();
+  const starCol = `star_${stars}`;
+  const questions: AdvisorQuestion[] = [];
+
+  data.forEach((row: any) => {
+    // 1. قراءة القيمة وتحديد الإلزامية
+    const rawVal = String(row[starCol] || '').trim();
+    const isMandatory = rawVal.includes('إلزامي') || rawVal.includes('الزامي') || rawVal === '1' || valIsBooleanTrue(rawVal);
+    const points = parseInt(row.points || '0');
+
+    // إذا لم يكن إلزامياً وليس له نقاط، نتجاوزه
+    if (!isMandatory && (!points || points === 0)) return;
+
+    const text = row.criteria_name_ar || '';
+    const category = row.category || 'عام';
+
+    // 2. تحديد المرحلة (Phase)
+    let phase: AdvisorPhase = 'REGULATORY'; // الافتراضي
     
-    // تحديد الإلزامية بناءً على المحتوى النصي في قاعدة البيانات
-    const mandatoryKeywords = [
-      'إلزامي', 'الزامي', 'mandatory', 'required', 'true', '1', 'yes', 'متوفر'
-    ];
-    const isMandatory = mandatoryKeywords.some(keyword => val.includes(keyword));
-
-    return {
-      ...item,
-      isMandatory: isMandatory,
-      // نعتبره تنظيمي إذا كان التصنيف Regulatory أو لم يكن مرتبطاً بمنتجات مادية مباشرة
-      isRegulatory: item.classification === 'Regulatory' || !item.category?.includes('تجهيز')
-    };
-  });
-};
-
-// ------------------------------------------------------------------
-// 2. المحرك الرئيسي: التحقق والحساب (Executive Engine)
-// ------------------------------------------------------------------
-export const getExecutiveSummary = async (
-  units: UnitDefinition[], 
-  stars: number, 
-  quality: 'Value' | 'Med' | 'VIP'
-): Promise<{ proposal: HotelProposal, validation: ValidationResult }> => {
-
-  // أ. تعريف المرافق المختارة من قبل العميل للمقارنة
-  const selectedFacilities = {
-    hasRestaurant: units.some(u => u.type === 'Restaurant'),
-    hasCoffee: units.some(u => u.type === 'CoffeeShop'),
-    hasGym: units.some(u => u.type === 'Gym'),
-    hasPool: units.some(u => u.type === 'Pool'),
-    hasMeeting: units.some(u => u.type === 'MeetingRoom'),
-    hasKids: units.some(u => u.type === 'KidsArea'),
-    hasPrayer: units.some(u => u.type === 'PrayerRoom'),
-    hasSpa: units.some(u => u.type === 'Spa'),
-  };
-
-  // ب. جلب البيانات (المعايير والمنتجات) بالتوازي
-  const [criteriaRes, productsRes] = await Promise.all([
-    fetchHotelCriteria(stars),
-    supabase.from('products').select('*').eq('is_active', true)
-  ]);
-
-  const criteriaList = criteriaRes || [];
-  const products = productsRes.data || [];
-
-  // ج. التحقق من النواقص (Validation Logic)
-  // نبحث في المعايير الإلزامية عن تلك التي تتحدث عن "وجود مرفق" ولم يقم العميل باختياره
-  const missingMandatory: string[] = [];
-  const regulatoryAlerts: string[] = [];
-
-  criteriaList.forEach(crit => {
-    if (crit.isMandatory) {
-      const name = crit.criteria_name_ar;
-      
-      // منطق التحقق الذكي (Mapping Criteria to Facilities)
-      if (name.includes('مطعم') && !selectedFacilities.hasRestaurant && !name.includes('إفطار')) missingMandatory.push('مطعم رئيسي (Restaurant)');
-      if ((name.includes('مقهى') || name.includes('كوفي')) && !selectedFacilities.hasCoffee) missingMandatory.push('مقهى / كوفي شوب');
-      if ((name.includes('رياضي') || name.includes('لياقة') || name.includes('Gym')) && !selectedFacilities.hasGym) missingMandatory.push('نادي صحي / منطقة لياقة');
-      if (name.includes('سباحة') && !selectedFacilities.hasPool) missingMandatory.push('مسبح');
-      if (name.includes('اجتماعات') && !selectedFacilities.hasMeeting) missingMandatory.push('قاعة اجتماعات / أعمال');
-      if (name.includes('ألعاب') && name.includes('أطفال') && !selectedFacilities.hasKids) missingMandatory.push('منطقة ألعاب أطفال');
-      
-      // تجميع الاشتراطات التنظيمية
-      if (crit.isRegulatory) {
-        regulatoryAlerts.push(name);
+    // البحث في الخريطة
+    for (const [key, val] of Object.entries(CATEGORY_MAP)) {
+      if (category.includes(key)) {
+        phase = val;
+        break;
       }
     }
-  });
-
-  // د. حساب التكاليف (Cost Calculation Logic)
-  const groupsMap = new Map<string, BOQGroup>();
-  const getOrCreateGroup = (key: string, title: string): BOQGroup => {
-    if (!groupsMap.has(key)) {
-      groupsMap.set(key, { title, items: [], totalCost: 0, totalMandatory: 0, mandatoryMet: 0 });
+    
+    // تصحيح المرحلة بناءً على الكلمات المفتاحية في النص
+    if (text.includes('مساحة') || text.includes('عرض') || text.includes('ارتفاع') || text.includes('م²') || text.includes('سم')) {
+        phase = 'CONSTRUCTION';
+    } else if (text.includes('سرير') || text.includes('مرتبة') || text.includes('تلفزيون') || text.includes('ثلاجة')) {
+        phase = 'FURNISHING';
     }
-    return groupsMap.get(key)!;
-  };
 
-  let totalEstimated = 0;
+    // 3. تحديد نوع السؤال وربطه بالوحدات
+    let answerType: 'YES_NO' | 'NUMBER' | 'UNIT_SELECTION' = 'YES_NO';
+    let relatedUnitType: string | undefined = undefined;
 
-  products.forEach(product => {
-    // 1. تحديد السعر حسب الجودة المختارة
-    let price = product.price_ready_med || 0;
-    if (quality === 'Value') price = product.price_ready_eco || (price * 0.85);
-    else if (quality === 'VIP') price = product.price_ready_vip || (price * 1.30);
-
-    // 2. التحقق: هل هذا المنتج يخص وحدة اختارها العميل؟
-    let isValidForProject = false;
-    let calculatedQty = 0;
-    const calcType = product.calc_type || 'per_unit'; // الافتراضي: حسب الوحدة
-    const multiplier = product.qty_multiplier || 1;
-
-    // حالة: بكج للمرفق (per_facility)
-    if (calcType === 'per_facility') {
-      // نتحقق من الحقل required_facility في جدول المنتجات
-      const reqFacility = product.required_facility;
-      if (!reqFacility || reqFacility === 'General') {
-         // منتجات عامة تحسب مرة واحدة للمشروع
-         isValidForProject = true;
-         calculatedQty = 1 * multiplier;
-      } else {
-         // منتجات خاصة بمرفق معين (مثل معدات الجيم)
-         // نفحص ما إذا كان العميل قد اختار هذا المرفق
-         const isSelected = units.some(u => 
-            (reqFacility === 'Restaurant' && u.type === 'Restaurant') ||
-            (reqFacility === 'Gym' && u.type === 'Gym') ||
-            (reqFacility === 'Pool' && u.type === 'Pool') ||
-            (reqFacility === 'Meeting' && u.type === 'MeetingRoom') ||
-            (reqFacility === 'Kids' && u.type === 'KidsArea')
-         );
-         
-         if (isSelected) {
-           isValidForProject = true;
-           calculatedQty = 1 * multiplier; // بكج واحد للمرفق
+    // منطق ربط الكلمات المفتاحية بأنواع الوحدات في UnitBuilder
+    if (text.includes('حجم الغرفة') || (text.includes('مساحة') && text.includes('الغرف'))) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Room';
+    } else if (text.includes('حجم الشقة') || (text.includes('مساحة') && text.includes('الشقة'))) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Apartment';
+    } else if (text.includes('استقبال') && (text.includes('كاونتر') || text.includes('مكتب'))) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Reception';
+    } else if (text.includes('مطعم') && (text.includes('وجود') || text.includes('واحد'))) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Restaurant';
+    } else if (text.includes('مطبخ') && (text.includes('مركزي') || text.includes('رئيسي'))) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Kitchen';
+    } else if (text.includes('مقهى') || text.includes('كوفي')) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'CoffeeShop';
+    } else if (text.includes('مصلى') || text.includes('صلاة')) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'PrayerRoom';
+    } else if (text.includes('دورة مياه') && text.includes('عامة')) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'PublicToilet';
+    } else if (text.includes('مغسلة') && (text.includes('ملابس') || text.includes('مركزية'))) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Laundry';
+    } else if (text.includes('ذوي الاحتياجات') && (text.includes('تخصيص') || text.includes('وحدات'))) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Accessible';
+    } else if (text.includes('رياضي') || text.includes('لياقة') || text.includes('Gym')) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Gym';
+    } else if (text.includes('مسبح')) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Pool';
+    } else if (text.includes('اجتماعات') || text.includes('مؤتمرات')) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'MeetingRoom';
+    } else if (text.includes('أعمال') && text.includes('مركز')) {
+        answerType = 'UNIT_SELECTION'; relatedUnitType = 'BusinessCenter';
+    } else if (text.includes('مواقف') && (text.includes('سيارات') || text.includes('تخصيص'))) {
+         // نتأكد أنه لا يسأل عن عرض الموقف بل عن وجوده
+         if (!text.includes('عرض') && !text.includes('طول')) {
+             answerType = 'UNIT_SELECTION'; relatedUnitType = 'Parking';
          }
-      }
-    } 
-    // حالة: حسب عدد الغرف/الوحدات (per_unit)
-    else {
-      // نجمع الكميات من جميع الوحدات التي ينطبق عليها المنتج
-      units.forEach(unit => {
-        let unitMatches = false;
-        
-        // التحقق من نوع الوحدة المسموح به (valid_unit_types)
-        if (!product.valid_unit_types || product.valid_unit_types === 'All') {
-          unitMatches = true;
-        } else {
-          // مثال: "Single,Twin" موجودة في الـ DB
-          if (product.valid_unit_types.includes(unit.type)) {
-            unitMatches = true;
-          }
-        }
-
-        if (unitMatches) {
-          calculatedQty += unit.quantity * multiplier;
-          isValidForProject = true;
-        }
-      });
     }
 
-    // تقريب الكمية للأعلى
-    calculatedQty = Math.ceil(calculatedQty);
-
-    if (isValidForProject && calculatedQty > 0) {
-      // ربط المنتج بالمعيار لمعرفة الإلزامية
-      const linkedCrit = criteriaList.find(c => String(c.criterion_number) === String(product.criterion_number));
-      const isMandatory = linkedCrit ? linkedCrit.isMandatory : false;
-      const supplySource = product.supply_source || 'UKRA';
-
-      const itemData: BOQItem = {
-        sku: product.sku,
-        name_ar: product.name_ar,
-        category: product.category || 'تجهيزات',
-        qty: calculatedQty,
-        unitPrice: supplySource === 'UKRA' ? price : 0, // المقاول سعره 0 في تقديراتنا
-        totalPrice: supplySource === 'UKRA' ? (calculatedQty * price) : 0,
-        isMandatory: isMandatory || false,
-        criterion_number: product.criterion_number,
-        notes: supplySource !== 'UKRA' ? 'يتم توفيره عبر مقاول/طرف ثالث' : ''
-      };
-
-      // توزيع البنود على المجموعات
-      if (supplySource === 'UKRA') {
-        const groupKey = isMandatory ? 'UKRA_MANDATORY' : 'UKRA_OPTIONAL';
-        const groupTitle = isMandatory ? 'تجهيزات أوكرة (إلزامية)' : 'تجهيزات أوكرة (كماليات/إضافية)';
-        
-        const group = getOrCreateGroup(groupKey, groupTitle);
-        group.items.push(itemData);
-        group.totalCost += itemData.totalPrice;
-        totalEstimated += itemData.totalPrice;
-        if (isMandatory) { group.totalMandatory++; group.mandatoryMet++; }
-      } else {
-        const group = getOrCreateGroup('CONTRACTOR', 'أعمال المقاولين والتجهيزات الخارجية');
-        group.items.push(itemData);
-        if (isMandatory) { group.totalMandatory++; group.mandatoryMet++; } // نعتبره محقق لأن العميل سيوفره
-      }
+    // 4. صياغة السؤال للعرض
+    let displayQuestion = text;
+    if (answerType === 'UNIT_SELECTION') {
+       displayQuestion = `هذا البند يتطلب توفير وحدة/مرفق: "${text}". هل قمت بإضافته للمخطط؟`;
+    } else if (text.includes('م²') || text.includes('سم')) {
+       displayQuestion = `هل التزمت بالمعيار الهندسي: ${text}؟`;
+    } else {
+       displayQuestion = `هل يتوفر لديكم: ${text}؟`;
     }
+
+    questions.push({
+      id: String(row.criterion_number),
+      phase: phase,
+      text: displayQuestion,
+      requirement: text,
+      isMandatory: isMandatory,
+      points: points,
+      answerType: answerType,
+      relatedUnitType: relatedUnitType
+    });
   });
 
-  // هـ. إضافة الاشتراطات التنظيمية التي ليس لها منتجات (للعلم فقط)
-  const regGroup = getOrCreateGroup('REGULATORY', 'الاشتراطات التنظيمية والإجرائية');
-  criteriaList.forEach(crit => {
-    if (crit.isMandatory && crit.isRegulatory) {
-       // نتأكد أننا لم نضفها سابقاً عبر المنتجات
-       const alreadyCovered = products.some(p => String(p.criterion_number) === String(crit.criterion_number));
-       if (!alreadyCovered) {
-         regGroup.items.push({
-           sku: 'REG',
-           name_ar: crit.criteria_name_ar,
-           category: 'إجراءات',
-           qty: 1,
-           unitPrice: 0,
-           totalPrice: 0,
-           isMandatory: true,
-           criterion_number: crit.criterion_number,
-           notes: 'متطلب تنظيمي (رخصة/شهادة)'
-         });
-         regGroup.totalMandatory++;
-       }
-    }
-  });
-
-  // ترتيب المجموعات للعرض
-  const sortedGroups = [
-    groupsMap.get('UKRA_MANDATORY'),
-    groupsMap.get('UKRA_OPTIONAL'),
-    groupsMap.get('CONTRACTOR'),
-    groupsMap.get('REGULATORY')
-  ].filter(Boolean) as BOQGroup[];
-
-  // إزالة التكرار من قائمة النواقص
-  const uniqueMissing = [...new Set(missingMandatory)];
-
-  return {
-    proposal: {
-      totalEstimated,
-      totalKeys: units.reduce((acc, u) => acc + u.quantity, 0),
-      groups: sortedGroups,
-      breakdown: [] // Legacy
-    },
-    validation: {
-      missingMandatory: uniqueMissing,
-      regulatoryAlerts: [], // يمكن إضافتها إذا أردنا عرضها كتنبيهات
-      areaAlerts: [] // يمكن تفعيلها لاحقاً
-    }
-  };
+  return questions;
 };
 
-export const saveHotelProposal = async (userId: string, projectName: string, stars: number, units: UnitDefinition[], summaryData: any) => {
-  await supabase.from('orders').insert({
-      client_id: userId,
-      project_name: projectName,
-      type: 'Hotel Consultant',
-      status: 'Draft',
-      total_amount: summaryData.proposal.totalEstimated,
-      details: { stars, units, summary: summaryData }
+/**
+ * دالة تحديد أنواع الوحدات الإلزامية حسب الفئة (1-5 نجوم)
+ * تستخدم لعرض الشارات الحمراء في نافذة الوحدات
+ */
+export const getMandatoryUnitTypes = async (stars: number): Promise<string[]> => {
+    // 1. القواعد الثابتة (V2 Standards Hardcoded Logic)
+    const mandatoryTypes: Set<string> = new Set();
+
+    // أ. أساسيات لكل الفئات (1-5)
+    mandatoryTypes.add('Reception');
+    mandatoryTypes.add('Lobby');
+    mandatoryTypes.add('PrayerRoom');
+    mandatoryTypes.add('PublicToilet'); // دورات مياه عامة
+
+    // ب. نجمتين وأكثر (2+)
+    if (stars >= 2) {
+        mandatoryTypes.add('CoffeeShop'); // غالباً مطلوب تقديم مشروبات
+    }
+
+    // ج. 3 نجوم وأكثر (3+)
+    if (stars >= 3) {
+        mandatoryTypes.add('Restaurant'); // مطعم رئيسي
+        mandatoryTypes.add('Kitchen');    // مطبخ للمطعم
+        mandatoryTypes.add('Accessible'); // غرفة ذوي الهمم (1%)
+        mandatoryTypes.add('Parking');    // مواقف سيارات
+    }
+
+    // د. 4 نجوم وأكثر (4+)
+    if (stars >= 4) {
+        mandatoryTypes.add('Gym');
+        mandatoryTypes.add('Laundry');     // خدمة غسيل
+        mandatoryTypes.add('MeetingRoom'); // قاعات
+    }
+
+    // هـ. 5 نجوم (5)
+    if (stars >= 5) {
+        mandatoryTypes.add('Pool');           // مسبح
+        mandatoryTypes.add('BusinessCenter'); // مركز أعمال
+        mandatoryTypes.add('Spa');            // سبا
+    }
+
+    // 2. التحقق من قاعدة البيانات (Fallback)
+    // لجلب أي وحدة إضافية قد تكون محددة كـ "إلزامي" في الجدول ولم نذكرها
+    const { data } = await supabase
+      .from('hotel_criteria')
+      .select('criteria_name_ar, star_' + stars)
+      .eq('is_active', true);
+  
+    if (data) {
+        const starCol = `star_${stars}`;
+        data.forEach((row: any) => {
+          const val = String(row[starCol] || '').trim();
+          const isMandatory = val.includes('إلزامي') || val === '1' || val.toLowerCase() === 'true';
+          
+          if (isMandatory) {
+            const text = row.criteria_name_ar || '';
+            // التقاط الكلمات المفتاحية
+            if (text.includes('مسبح')) mandatoryTypes.add('Pool');
+            if (text.includes('نادي صحي')) mandatoryTypes.add('Gym');
+            if (text.includes('مغسلة')) mandatoryTypes.add('Laundry');
+            if (text.includes('مطبخ')) mandatoryTypes.add('Kitchen');
+            if (text.includes('دورة مياه') && text.includes('عامة')) mandatoryTypes.add('PublicToilet');
+          }
+        });
+    }
+  
+    return Array.from(mandatoryTypes);
+};
+
+// دالة مساعدة للقيم المنطقية
+const valIsBooleanTrue = (val: string) => val.toLowerCase() === 'true';
+
+/**
+ * حساب التكلفة التقديرية (مع دعم الوحدات الجديدة)
+ */
+export const calculateEstimatedCost = async (units: any[], stars: number): Promise<{ total: number; breakdown: any[] }> => {
+    const { data: products } = await supabase.from('products').select('*').eq('is_active', true);
+    if (!products) return { total: 0, breakdown: [] };
+    
+    let total = 0;
+    const breakdown: any[] = [];
+    const unitTypes = new Set(units.map(u => u.type));
+
+    products.forEach(p => {
+        let qty = 0;
+        // حساب الكميات
+        if (p.calc_type === 'per_facility') {
+            // إذا كان المنتج يتبع مرفق (مثل أجهزة الجيم تتبع Gym)
+            if (p.required_facility === 'General' || unitTypes.has(p.required_facility)) {
+                qty = 1;
+            }
+        } else {
+            // إذا كان المنتج يتبع وحدة (مثل سرير يتبع Single Room)
+            units.forEach(u => {
+                if (p.valid_unit_types === 'All' || p.valid_unit_types?.includes(u.type)) {
+                    qty += u.quantity * (p.qty_multiplier || 1);
+                }
+            });
+        }
+
+        if (qty > 0) {
+            // تحديد السعر حسب الجودة (حالياً نأخذ المتوسط كتقدير)
+            const price = p.price_ready_med || p.price_ready_eco || 0;
+            const cost = qty * price;
+            total += cost;
+            breakdown.push({ name: p.name_ar, qty, cost });
+        }
     });
+
+    return { total, breakdown };
 };
