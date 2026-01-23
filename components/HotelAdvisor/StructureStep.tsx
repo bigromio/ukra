@@ -24,22 +24,24 @@ export const StructureStep: React.FC<StructureStepProps> = ({
   // تحديث قائمة الإلزاميات عند تغيير النجوم
   useEffect(() => {
     const loadMandatory = async () => {
+      // هذه الدالة async وتعود بـ Promise، لذا يجب استخدام await أو .then
       const types = await getMandatoryUnitTypes(stars);
       setMandatoryTypes(types);
     };
     loadMandatory();
   }, [stars]);
 
-  // دالة تغيير النجوم (مع التعبئة الذكية)
-  const handleStarChange = (newStars: number) => {
+  // دالة تغيير النجوم (مع التعبئة الذكية) - تم التصحيح هنا
+  const handleStarChange = async (newStars: number) => {
     if (newStars === stars && units.length > 0) return;
 
     // تأثير بصري
     setIsAnimating(true);
-    setTimeout(() => setIsAnimating(false), 500);
-
-    // توليد الوحدات الافتراضية لهذه الفئة
-    const defaults = generateDefaultUnits(newStars);
+    
+    // جلب الوحدات الجديدة (يجب انتظارها)
+    const defaults = await generateDefaultUnits(newStars);
+    
+    setIsAnimating(false);
     
     // نحدث الحالة في الأب (HotelAdvisor)
     onUpdate(newStars, defaults);
@@ -52,7 +54,7 @@ export const StructureStep: React.FC<StructureStepProps> = ({
   };
 
   // التحقق قبل الانتقال
-  const canProceed = units.length > 0;
+  const canProceed = units && units.length > 0; // حماية إضافية
 
   return (
     <div className="max-w-4xl mx-auto py-6 px-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -112,9 +114,9 @@ export const StructureStep: React.FC<StructureStepProps> = ({
         </div>
 
         <div className="p-8">
-          {units.length === 0 ? (
+          {!units || units.length === 0 ? (
             <div className="text-center py-10 text-gray-400">
-              اختر التصنيف أعلاه لعرض الوحدات المقترحة...
+              {isAnimating ? 'جاري التحديث...' : 'اختر التصنيف أعلاه لعرض الوحدات المقترحة...'}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
