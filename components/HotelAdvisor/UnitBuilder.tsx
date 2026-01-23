@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, BedDouble, Utensils, Dumbbell, 
   Check, X, Plus, Minus, ChefHat, Sofa, 
@@ -12,7 +12,7 @@ interface UnitBuilderProps {
   onSave: (units: UnitDefinition[]) => void;
   onCancel: () => void;
   initialUnits?: UnitDefinition[];
-  mandatoryTypes?: string[]; // القائمة القادمة من advisorService
+  mandatoryTypes?: string[];
 }
 
 type UnitCategory = 'ACCOMMODATION' | 'PUBLIC' | 'DINING' | 'SERVICES';
@@ -26,13 +26,13 @@ interface UnitTemplate {
   isMandatory?: boolean;
 }
 
-// الكتالوج (تمت مراجعة الأسماء لتطابق advisorService)
+// الكتالوج
 const UNIT_TEMPLATES: Record<UnitCategory, UnitTemplate[]> = {
   ACCOMMODATION: [
     { type: 'Single', nameAr: 'غرفة مفردة', icon: Bed, defaultQty: 5, hasOptions: true },
     { type: 'Double', nameAr: 'غرفة مزدوجة', icon: BedDouble, defaultQty: 10, hasOptions: true },
     { type: 'Twin', nameAr: 'غرفة توأم', icon: Users, defaultQty: 5, hasOptions: true },
-    { type: 'Accessible', nameAr: 'غرفة ذوي الهمم', icon: Accessibility, defaultQty: 1, hasOptions: true }, // الإلزامية ستأتي من mandatoryTypes
+    { type: 'Accessible', nameAr: 'غرفة ذوي الهمم', icon: Accessibility, defaultQty: 1, hasOptions: true },
     { type: 'Suite', nameAr: 'جناح فندقي', icon: Sofa, defaultQty: 2, hasOptions: true },
     { type: 'Apartment', nameAr: 'شقة فندقية', icon: Building2, defaultQty: 1, hasOptions: true },
     { type: 'Villa', nameAr: 'فيلا خاصة', icon: Building2, defaultQty: 1, hasOptions: true },
@@ -64,75 +64,58 @@ export const UnitBuilder: React.FC<UnitBuilderProps> = ({
   onSave, onCancel, initialUnits = [], mandatoryTypes = [] 
 }) => {
   const [activeTab, setActiveTab] = useState<UnitCategory>('ACCOMMODATION');
+  // السلة تحتوي على الوحدات المختارة
   const [selectedUnits, setSelectedUnits] = useState<UnitDefinition[]>(initialUnits);
+  // الوحدة النشطة حالياً في اللوحة الجانبية
   const [activeTemplateType, setActiveTemplateType] = useState<string | null>(null);
-  
-  const [currentConfig, setCurrentConfig] = useState<{
-    qty: number; details: any;
-  }>({ qty: 1, details: {} });
 
-  const handleSelectTemplate = (template: UnitTemplate) => {
-    setActiveTemplateType(template.type);
-    const existing = selectedUnits.find(u => u.type === template.type);
+  // --- المنطق الجديد: التبديل بضغطة واحدة (Toggle) ---
+  const handleToggleUnit = (template: UnitTemplate) => {
+    const existingIndex = selectedUnits.findIndex(u => u.type === template.type);
     
-    if (existing) {
-      setCurrentConfig({
-        qty: existing.quantity,
-        details: {
-          hasLiving: existing.hasLivingRoom,
-          hasDining: existing.hasDining,
-          kitchenType: existing.kitchenType,
-          bedrooms: existing.bedrooms,
-          bathrooms: existing.bathrooms
-        }
-      });
+    if (existingIndex >= 0) {
+      // إذا كانت موجودة -> حذفها (إلغاء الاختيار)
+      // إذا كانت هي النشطة حالياً، نغلق اللوحة الجانبية
+      if (activeTemplateType === template.type) {
+        setActiveTemplateType(null);
+      }
+      setSelectedUnits(prev => prev.filter(u => u.type !== template.type));
     } else {
-      setCurrentConfig({
-        qty: template.defaultQty,
-        details: {
-          hasLiving: template.type === 'Suite' || template.type === 'Apartment',
-          hasDining: template.type === 'Apartment',
-          kitchenType: template.type === 'Apartment' ? 'Full' : (template.type === 'Suite' ? 'Kitchenette' : 'Minibar'),
-          bedrooms: template.type === 'Villa' ? 3 : 1,
-          bathrooms: 1
-        }
-      });
+      // إذا غير موجودة -> إضافتها فوراً بالقيم الافتراضية
+      const newUnit: UnitDefinition = {
+        id: crypto.randomUUID(),
+        type: template.type as any,
+        name: template.nameAr,
+        quantity: template.defaultQty,
+        // قيم افتراضية للخيارات
+        bedrooms: template.type === 'Villa' ? 3 : 1,
+        bathrooms: 1,
+        hasLivingRoom: template.type === 'Suite' || template.type === 'Apartment',
+        hasDining: template.type === 'Apartment',
+        kitchenType: template.type === 'Apartment' ? 'Full' : (template.type === 'Suite' ? 'Kitchenette' : 'Minibar'),
+      };
+      
+      setSelectedUnits(prev => [...prev, newUnit]);
+      // تفعيلها في اللوحة الجانبية للتعديل
+      setActiveTemplateType(template.type);
     }
   };
 
-  const handleUpdateBasket = () => {
+  // --- المنطق الجديد: التحديث المباشر (Live Update) ---
+  // أي تغيير في السايدبار يحدث السلة فوراً
+  const updateActiveUnit = (updates: Partial<UnitDefinition>) => {
     if (!activeTemplateType) return;
-    const template = Object.values(UNIT_TEMPLATES).flat().find(t => t.type === activeTemplateType);
-    if (!template) return;
-
-    const newUnit: UnitDefinition = {
-      id: crypto.randomUUID(),
-      type: template.type as any,
-      name: template.nameAr,
-      quantity: currentConfig.qty,
-      bedrooms: template.hasOptions ? currentConfig.details.bedrooms : undefined,
-      bathrooms: template.hasOptions ? currentConfig.details.bathrooms : undefined,
-      hasLivingRoom: template.hasOptions ? currentConfig.details.hasLiving : undefined,
-      hasDining: template.hasOptions ? currentConfig.details.hasDining : undefined,
-      kitchenType: template.hasOptions ? currentConfig.details.kitchenType : undefined,
-    };
-
-    setSelectedUnits(prev => {
-      const filtered = prev.filter(u => u.type !== activeTemplateType);
-      return currentConfig.qty > 0 ? [...filtered, newUnit] : filtered;
-    });
-    setActiveTemplateType(null); 
+    
+    setSelectedUnits(prev => prev.map(u => {
+      if (u.type === activeTemplateType) {
+        return { ...u, ...updates };
+      }
+      return u;
+    }));
   };
 
-  const handleRemoveFromBasket = (type: string) => {
-    setSelectedUnits(prev => prev.filter(u => u.type !== type));
-    if (activeTemplateType === type) setActiveTemplateType(null);
-  };
-
-  const handleFinalSave = () => {
-    onSave(selectedUnits);
-  };
-
+  // الوحدة النشطة حالياً (للعرض في السايدبار)
+  const activeUnit = selectedUnits.find(u => u.type === activeTemplateType);
   const activeTemplate = activeTemplateType 
     ? Object.values(UNIT_TEMPLATES).flat().find(t => t.type === activeTemplateType) 
     : null;
@@ -148,7 +131,7 @@ export const UnitBuilder: React.FC<UnitBuilderProps> = ({
               <Building2 className="w-6 h-6 text-ukra-gold" /> تكوين وحدات ومرافق الفندق
             </h2>
             <p className="text-ukra-gold text-xs opacity-80 mt-1">
-              اختر الوحدات المطلوبة. العلامة <span className="text-red-300 font-bold">الحمراء</span> تعني أن الوحدة إلزامية لتصنيفك.
+              اضغط على الوحدة لإضافتها أو إزالتها. الإلزاميات مميزة بوضوح.
             </p>
           </div>
           <button onClick={onCancel} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X className="w-5 h-5" /></button>
@@ -170,39 +153,53 @@ export const UnitBuilder: React.FC<UnitBuilderProps> = ({
 
         {/* Body */}
         <div className="flex-1 overflow-hidden flex">
-          {/* Catalog */}
+          {/* Catalog Grid */}
           <div className="flex-1 overflow-y-auto p-6 bg-gray-50 custom-scrollbar">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {UNIT_TEMPLATES[activeTab].map((template) => {
-                const inBasket = selectedUnits.find(u => u.type === template.type);
+                const inBasket = selectedUnits.some(u => u.type === template.type);
                 const isSelected = activeTemplateType === template.type;
-                
-                // التحقق من القائمة القادمة من advisorService
                 const isMandatoryDynamic = mandatoryTypes.includes(template.type) || template.isMandatory;
 
                 return (
-                  <button key={template.type} onClick={() => handleSelectTemplate(template)} className={`relative flex flex-col items-center p-4 rounded-2xl border-2 transition-all duration-200 group ${isSelected ? 'border-ukra-navy bg-white shadow-md ring-2 ring-ukra-navy/10' : (inBasket ? 'border-ukra-gold bg-white' : 'border-white bg-white hover:border-gray-200')}`}>
-                    {inBasket && <span className="absolute top-2 right-2 bg-ukra-gold text-ukra-navy text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">x{inBasket.quantity}</span>}
+                  <button 
+                    key={template.type} 
+                    onClick={() => handleToggleUnit(template)} 
+                    className={`relative flex flex-col items-center p-4 rounded-2xl border-2 transition-all duration-200 group ${
+                      // ستايل حسب الحالة: مختار؟ في السلة؟
+                      isSelected 
+                        ? 'border-ukra-navy bg-blue-50/50 ring-2 ring-ukra-navy/10' 
+                        : (inBasket ? 'border-ukra-gold bg-white' : 'border-white bg-white hover:border-gray-200')
+                    }`}
+                  >
+                    {/* شارة العدد */}
+                    {inBasket && (
+                      <span className="absolute top-2 right-2 bg-ukra-gold text-ukra-navy text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-in zoom-in">
+                        مضاف
+                      </span>
+                    )}
                     
                     {/* شارة إلزامي */}
-                    {isMandatoryDynamic && !inBasket && (
-                      <span className="absolute top-2 left-2 text-[9px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100 font-bold animate-pulse shadow-sm">
-                        إلزامي
+                    {isMandatoryDynamic && (
+                      <span className={`absolute top-2 left-2 text-[9px] px-1.5 py-0.5 rounded border font-bold ${inBasket ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-100 animate-pulse'}`}>
+                        {inBasket ? 'تم' : 'إلزامي'}
                       </span>
                     )}
 
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-colors ${isSelected ? 'bg-ukra-navy text-white' : (inBasket ? 'bg-ukra-gold/20 text-ukra-navy' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-50')}`}>
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-colors ${
+                      inBasket ? 'bg-ukra-navy text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-50'
+                    }`}>
                       <template.icon className="w-6 h-6" />
                     </div>
-                    <span className={`font-bold text-xs text-center ${isSelected ? 'text-ukra-navy' : 'text-gray-700'}`}>{template.nameAr}</span>
+                    <span className={`font-bold text-xs text-center ${inBasket ? 'text-ukra-navy' : 'text-gray-700'}`}>{template.nameAr}</span>
                   </button>
                 );
               })}
             </div>
           </div>
           
-          {/* Config Panel */}
-          {activeTemplate && (
+          {/* Config Panel (تعديل مباشر) */}
+          {activeUnit && activeTemplate && (
             <div className="w-80 bg-white border-l border-gray-200 p-6 flex flex-col shadow-xl z-10 animate-in slide-in-from-left duration-300">
                <div className="flex items-center gap-3 mb-6 border-b pb-4">
                    <div className="bg-ukra-navy/10 p-2 rounded-lg text-ukra-navy"><activeTemplate.icon className="w-6 h-6" /></div>
@@ -210,53 +207,77 @@ export const UnitBuilder: React.FC<UnitBuilderProps> = ({
                </div>
                
                <div className="mb-6">
-                   <label className="block text-xs font-bold text-gray-500 mb-2">العدد</label>
+                   <label className="block text-xs font-bold text-gray-500 mb-2">العدد المطلوب</label>
                    <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border">
-                      <button onClick={() => setCurrentConfig(p => ({...p, qty: Math.max(0, p.qty - 1)}))} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg">-</button>
-                      <input type="number" value={currentConfig.qty} onChange={(e) => setCurrentConfig(p => ({...p, qty: parseInt(e.target.value) || 0}))} className="flex-1 text-center font-bold bg-transparent outline-none text-ukra-navy" />
-                      <button onClick={() => setCurrentConfig(p => ({...p, qty: p.qty + 1}))} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg">+</button>
+                      <button onClick={() => updateActiveUnit({ quantity: Math.max(1, activeUnit.quantity - 1) })} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg hover:bg-gray-100">-</button>
+                      <input 
+                        type="number" 
+                        value={activeUnit.quantity} 
+                        onChange={(e) => updateActiveUnit({ quantity: parseInt(e.target.value) || 1 })}
+                        className="flex-1 text-center font-bold bg-transparent outline-none text-ukra-navy" 
+                      />
+                      <button onClick={() => updateActiveUnit({ quantity: activeUnit.quantity + 1 })} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg hover:bg-gray-100">+</button>
                    </div>
                </div>
 
-               {/* خيارات تفصيلية */}
                {activeTemplate.hasOptions && (
                   <div className="space-y-4">
                      <div>
                        <label className="block text-xs font-bold text-gray-500 mb-2">تجهيزات</label>
                        <div className="grid grid-cols-2 gap-2">
                          {['Minibar', 'Kitchenette', 'Full', 'None'].map(k => (
-                           <button key={k} onClick={() => setCurrentConfig(p => ({...p, details: {...p.details, kitchenType: k}}))} className={`text-[10px] py-2 px-1 rounded border font-bold ${currentConfig.details.kitchenType === k ? 'bg-ukra-navy text-white border-ukra-navy' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+                           <button 
+                             key={k} 
+                             onClick={() => updateActiveUnit({ kitchenType: k as any })} 
+                             className={`text-[10px] py-2 px-1 rounded border font-bold transition-all ${activeUnit.kitchenType === k ? 'bg-ukra-navy text-white border-ukra-navy' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                           >
                              {k === 'Minibar' ? 'ميني بار' : k === 'Kitchenette' ? 'ركن قهوة' : k === 'Full' ? 'مطبخ كامل' : 'لا يوجد'}
                            </button>
                          ))}
                        </div>
                      </div>
+                     <label className="flex items-center gap-2 cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
+                        <input 
+                          type="checkbox" 
+                          checked={activeUnit.hasLivingRoom} 
+                          onChange={e => updateActiveUnit({ hasLivingRoom: e.target.checked })} 
+                          className="accent-ukra-navy"
+                        />
+                        <span className="text-xs font-bold text-gray-700">صالة جلوس مستقلة</span>
+                     </label>
                   </div>
                )}
 
-               <div className="pt-4 mt-4 border-t border-gray-100 mt-auto">
-                <button onClick={handleUpdateBasket} className="w-full bg-ukra-navy text-white py-3 rounded-xl font-bold text-sm hover:bg-ukra-navy/90 transition shadow-lg flex items-center justify-center gap-2">
-                  {currentConfig.qty === 0 ? <Trash2 className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                  {currentConfig.qty === 0 ? 'حذف من القائمة' : 'تأكيد الإضافة'}
-                </button>
+               <div className="mt-auto pt-6 text-center">
+                  <p className="text-xs text-gray-400">يتم حفظ التعديلات تلقائياً</p>
                </div>
             </div>
           )}
         </div>
 
-{/* Footer */}
+        {/* Footer */}
         <div className="bg-white border-t border-gray-200 p-4 shrink-0 flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
           <div className="flex items-center gap-4 overflow-x-auto flex-1 pb-1 custom-scrollbar">
-            {/* ... (عرض الوحدات المختارة) ... */}
+            <div className="flex items-center gap-2 text-gray-400 pl-4 border-l"><ShoppingBag className="w-5 h-5" /><span className="text-xs font-bold whitespace-nowrap">ملخص:</span></div>
+            {selectedUnits.length === 0 ? (<span className="text-xs text-gray-400 italic">لم تختر شيئاً بعد...</span>) : (
+               selectedUnits.map(u => (
+                 <div key={u.id} 
+                      onClick={() => setActiveTemplateType(u.type)} // عند النقر يفتح للتعديل
+                      className={`flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border shrink-0 cursor-pointer hover:bg-gray-100 transition ${activeTemplateType === u.type ? 'border-ukra-navy bg-blue-50' : 'border-gray-200 bg-gray-50'}`}
+                 >
+                    <span className="bg-ukra-navy text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">{u.quantity}</span>
+                    <span className="text-xs font-bold text-gray-700">{u.name}</span>
+                 </div>
+               ))
+            )}
           </div>
           <div className="mr-6 pl-2">
             <button 
-              type="button" // <--- إضافة هذا السطر هام جداً
-              onClick={handleFinalSave} 
-              disabled={selectedUnits.length === 0} 
-              className={`px-8 py-3 rounded-xl font-bold text-white transition shadow-lg flex items-center gap-2 whitespace-nowrap ${selectedUnits.length > 0 ? 'bg-ukra-gold text-ukra-navy hover:bg-yellow-500 hover:scale-105' : 'bg-gray-300 cursor-not-allowed'}`}
+              type="button" 
+              onClick={() => onSave(selectedUnits)} 
+              className={`px-8 py-3 rounded-xl font-bold text-white transition shadow-lg flex items-center gap-2 whitespace-nowrap ${selectedUnits.length > 0 ? 'bg-ukra-gold text-ukra-navy hover:bg-yellow-500 hover:scale-105' : 'bg-gray-300'}`}
             >
-              <Check className="w-5 h-5" /> حفظ الكل ({selectedUnits.length})
+              <Check className="w-5 h-5" /> حفظ وإنهاء ({selectedUnits.length})
             </button>
           </div>
         </div>

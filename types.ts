@@ -45,13 +45,16 @@ export interface ProductDB {
 // --- Hotel Advisor & Unit Types (UPDATED) ---
 
 // 1. القائمة الشاملة لأنواع الوحدات (غرف + مرافق)
+// --- تحديث قائمة الأنواع لتشمل جميع المرافق الجديدة ---
 export type UnitType = 
-  // الغرف السكنية (Residential)
-  | 'Single' | 'Double' | 'King' | 'Twin' | 'Triple' | 'Suite' | 'Studio' | 'Apartment' | 'Villa'
-  // المرافق العامة (Facilities)
-  | 'Reception' | 'Lobby' | 'Restaurant' | 'CoffeeShop' | 'MeetingRoom' 
-  | 'Gym' | 'KidsArea' | 'PrayerRoom' | 'Spa' | 'Pool' | 'Other';
-
+  // وحدات سكنية
+  | 'Single' | 'Double' | 'Twin' | 'King' | 'Suite' | 'Studio' | 'Apartment' | 'Villa' | 'Accessible'
+  // مرافق عامة وإدارية
+  | 'Reception' | 'Lobby' | 'PublicToilet' | 'PrayerRoom' | 'MeetingRoom' | 'BusinessCenter' | 'Parking'
+  // طعام وشراب
+  | 'Restaurant' | 'CoffeeShop' | 'Kitchen' | 'Lounge'
+  // ترفيه وخدمات
+  | 'Gym' | 'Pool' | 'Spa' | 'KidsArea' | 'Laundry' | 'Barber';
 // 2. تصنيف المرافق (للمنطق البرمجي)
 export type FacilityCategory = 'Pool' | 'Gym' | 'Restaurant' | 'Meeting' | 'Prayer' | 'Kids' | 'General';
 
@@ -59,24 +62,19 @@ export type FacilityCategory = 'Pool' | 'Gym' | 'Restaurant' | 'Meeting' | 'Pray
 export interface UnitDefinition {
   id: string;
   name: string;
-  
-  // النوع الموحد (يشمل الغرف والمرافق)
-  type: UnitType; 
-  
+  type: UnitType;
   quantity: number;
-
-  // --- خصائص اختيارية للتوافق مع الأكواد القديمة ---
-  // جعلناها (?) لأن "المطعم" أو "الاستقبال" لا يحتوي على غرف نوم أو مطابخ
-  bedrooms?: number; 
+  
+  // خيارات تفصيلية
+  bedrooms?: number;
   bathrooms?: number;
   hasLivingRoom?: boolean;
   hasDining?: boolean;
   kitchenType?: 'None' | 'Minibar' | 'Kitchenette' | 'Full';
   
-  // خاصية للتوافق العكسي (في حال كان هناك كود قديم يعتمد على هذا الاسم)
-  unitType?: UnitType; 
+  // للتوافق مع الأكواد القديمة
+  unitType?: UnitType;
 }
-
 // 4. معايير الوزارة (Criteria)
 export interface HotelCriteriaDB {
   id: number;
@@ -188,24 +186,31 @@ export interface BookingPayload {
 // أضف هذه الأنواع في ملف types/index.ts أو في بداية advisorService.ts
 
 export type AdvisorPhase = 'CONSTRUCTION' | 'REGULATORY' | 'FURNISHING';
-
+export type QuestionAnswerType = 'YES_NO' | 'NUMBER' | 'UNIT_SELECTION' | 'CHECKLIST';
 export interface AdvisorQuestion {
-  id: string; // criterion_number
+  id: string;
   phase: AdvisorPhase;
-  text: string; // نص السؤال (مثلاً: هل وفرت مواقف سيارات؟)
-  requirement: string; // نص الاشتراط الأصلي (لتذكير العميل)
-  isMandatory: boolean; // هل هو إلزامي؟
-  points?: number; // النقاط (للاختياري)
-  
-  // نوع الإجابة المطلوبة
-  answerType: 'YES_NO' | 'NUMBER' | 'UNIT_SELECTION'; 
-  
-  // لربط السؤال بالمنتجات أو الوحدات
-  relatedUnitType?: string; 
+  text: string;
+  requirement: string; // قد يكون نصاً أو JSON للقوائم
+  isMandatory: boolean;
+  points: number;
+  answerType: QuestionAnswerType;
+  relatedUnitType?: string;
 }
-
 export interface UserAnswer {
   questionId: string;
-  value: any; // true/false, or number, or unit array
-  isCompliant: boolean; // هل الإجابة حققت الشرط؟
+  value: any;
+  isCompliant: boolean;
+}
+
+export interface Product {
+  id: string;
+  name_ar: string;
+  price_ready_eco: number;
+  price_ready_med: number;
+  price_custom_high: number;
+  calc_type: 'per_unit' | 'per_facility' | 'fixed';
+  valid_unit_types?: string[]; // All or specific types
+  required_facility?: string;  // e.g. 'Gym'
+  qty_multiplier?: number;
 }

@@ -1,246 +1,162 @@
 import { supabase } from '../lib/supabase';
-import { AdvisorPhase, AdvisorQuestion } from '../types';
+import { UnitDefinition } from '../types';
 
-/**
- * خريطة توزيع فئات الاشتراطات على مراحل المشروع الثلاث
- */
-const CATEGORY_MAP: Record<string, AdvisorPhase> = {
-  // --- مرحلة البناء والتشطيب (Construction) ---
-  'المظهر الخارجي': 'CONSTRUCTION',
-  'مواقف السيارات': 'CONSTRUCTION',
-  'المصاعد': 'CONSTRUCTION',
-  'الممرات والسلالم': 'CONSTRUCTION',
-  'مساحة الغرف': 'CONSTRUCTION',
-  'مساحة الشقق': 'CONSTRUCTION',
-  'دورة المياه': 'CONSTRUCTION',
-  'المطبخ': 'CONSTRUCTION',
-  'ذوي الاحتياجات': 'CONSTRUCTION',
-  'الاستقبال': 'CONSTRUCTION',
-  'البهو': 'CONSTRUCTION',
-  'المرافق العامة': 'CONSTRUCTION',
-  'الإضاءة': 'CONSTRUCTION', // التأسيس
-  'التهوية': 'CONSTRUCTION',
-  'التكييف': 'CONSTRUCTION',
+// --- تعريف الثوابت للوحدات الإلزامية (تم تحديث الأعداد الافتراضية للغرف) ---
+const MANDATORY_FACILITIES: Record<number, Partial<UnitDefinition>[]> = {
+  // 1 نجمة
+  1: [
+    { type: 'Single', name: 'غرفة مفردة', quantity: 10 }, // عدد افتراضي
+    { type: 'Double', name: 'غرفة مزدوجة', quantity: 5 },
+    { type: 'Reception', name: 'الاستقبال (Reception)', quantity: 1 },
+    { type: 'Lobby', name: 'منطقة انتظار (Lobby)', quantity: 1 },
+    { type: 'PrayerRoom', name: 'مصلى', quantity: 1 },
+    { type: 'PublicToilet', name: 'دورة مياه عامة', quantity: 1 },
+    { type: 'Parking', name: 'مواقف سيارات', quantity: 1 },
+  ],
 
-  // --- المرحلة النظامية والتشغيلية (Regulatory) ---
-  'المتطلبات العامة': 'REGULATORY',
-  'الموظفون': 'REGULATORY',
-  'اللغات': 'REGULATORY',
-  'السلامة': 'REGULATORY',
-  'النظافة العامة': 'REGULATORY',
-  'الصيانة': 'REGULATORY',
-  'البيئة': 'REGULATORY',
-  'الموارد البشرية': 'REGULATORY',
-  'الجودة': 'REGULATORY',
-  'موقع إلكتروني': 'REGULATORY',
-  'التقنية': 'REGULATORY',
+  // 2 نجمة
+  2: [
+    { type: 'Single', name: 'غرفة مفردة', quantity: 15 },
+    { type: 'Double', name: 'غرفة مزدوجة', quantity: 10 },
+    { type: 'Reception', name: 'الاستقبال (Reception)', quantity: 1 },
+    { type: 'Lobby', name: 'بهو الفندق (Lobby)', quantity: 1 },
+    { type: 'CoffeeShop', name: 'مقهى / منطقة إفطار', quantity: 1 },
+    { type: 'PrayerRoom', name: 'مصلى', quantity: 1 },
+    { type: 'PublicToilet', name: 'دورات مياه عامة', quantity: 1 },
+    { type: 'Parking', name: 'مواقف سيارات', quantity: 1 },
+  ],
 
-  // --- مرحلة الفرش والتأثيث (Furnishing) ---
-  'الأثاث': 'FURNISHING',
-  'الأسرة': 'FURNISHING',
-  'المراتب': 'FURNISHING',
-  'أغطية الأسرة': 'FURNISHING',
-  'الوسائد': 'FURNISHING',
-  'الستائر': 'FURNISHING',
-  'الكهرباء': 'FURNISHING', // الأفياش
-  'إلكترونيات': 'FURNISHING',
-  'المناشف': 'FURNISHING',
-  'العناية الشخصية': 'FURNISHING',
-  'أدوات': 'FURNISHING',
-  'المشروبات': 'FURNISHING',
-  'اللوحات': 'FURNISHING',
-  'الإكسسوارات': 'FURNISHING'
+  // 3 نجوم
+  3: [
+    { type: 'Single', name: 'غرفة مفردة', quantity: 20 },
+    { type: 'Double', name: 'غرفة مزدوجة', quantity: 25 },
+    { type: 'Suite', name: 'جناح فندقي', quantity: 4 },
+    { type: 'Reception', name: 'الاستقبال (Reception)', quantity: 1 },
+    { type: 'Lobby', name: 'بهو الفندق (Lobby)', quantity: 1 },
+    { type: 'Restaurant', name: 'مطعم رئيسي', quantity: 1 },
+    { type: 'Kitchen', name: 'مطبخ مركزي', quantity: 1 },
+    { type: 'PrayerRoom', name: 'مصلى', quantity: 1 },
+    { type: 'PublicToilet', name: 'دورات مياه عامة', quantity: 2 },
+    { type: 'Accessible', name: 'غرفة ذوي الهمم', quantity: 1 },
+    { type: 'Parking', name: 'مواقف سيارات', quantity: 1 },
+  ],
+
+  // 4 نجوم
+  4: [
+    { type: 'Single', name: 'غرفة مفردة', quantity: 30 },
+    { type: 'Double', name: 'غرفة مزدوجة', quantity: 40 },
+    { type: 'Suite', name: 'جناح فندقي', quantity: 8 },
+    { type: 'Reception', name: 'الاستقبال (Reception)', quantity: 1 },
+    { type: 'Lobby', name: 'بهو الفندق (Lobby)', quantity: 1 },
+    { type: 'Restaurant', name: 'مطعم رئيسي', quantity: 1 },
+    { type: 'Kitchen', name: 'مطبخ مركزي', quantity: 1 },
+    { type: 'PrayerRoom', name: 'مصلى', quantity: 1 },
+    { type: 'PublicToilet', name: 'دورات مياه عامة', quantity: 2 },
+    { type: 'Accessible', name: 'غرفة ذوي الهمم', quantity: 2 },
+    { type: 'Parking', name: 'مواقف سيارات', quantity: 1 },
+    { type: 'Gym', name: 'نادي صحي (Gym)', quantity: 1 },
+    { type: 'MeetingRoom', name: 'قاعة اجتماعات', quantity: 1 },
+    { type: 'Laundry', name: 'مغسلة مركزية', quantity: 1 },
+    { type: 'Pool', name: 'مسبح خارجي', quantity: 1 },
+  ],
+
+  // 5 نجوم
+  5: [
+    { type: 'Single', name: 'غرفة مفردة', quantity: 40 },
+    { type: 'Double', name: 'غرفة مزدوجة', quantity: 60 },
+    { type: 'Suite', name: 'جناح فندقي', quantity: 15 },
+    { type: 'Reception', name: 'الاستقبال (Reception)', quantity: 1 },
+    { type: 'Lobby', name: 'بهو الفندق (Lobby)', quantity: 1 },
+    { type: 'Restaurant', name: 'مطعم رئيسي', quantity: 1 },
+    { type: 'Kitchen', name: 'مطبخ مركزي', quantity: 1 },
+    { type: 'PrayerRoom', name: 'مصلى', quantity: 1 },
+    { type: 'PublicToilet', name: 'دورات مياه عامة', quantity: 4 },
+    { type: 'Accessible', name: 'غرفة ذوي الهمم', quantity: 3 },
+    { type: 'Parking', name: 'مواقف سيارات', quantity: 1 },
+    { type: 'Gym', name: 'نادي صحي (Gym)', quantity: 1 },
+    { type: 'MeetingRoom', name: 'قاعة اجتماعات', quantity: 2 },
+    { type: 'Laundry', name: 'مغسلة مركزية', quantity: 1 },
+    { type: 'Pool', name: 'مسبح خارجي', quantity: 1 },
+    { type: 'BusinessCenter', name: 'مركز أعمال', quantity: 1 },
+    { type: 'Spa', name: 'سبا (SPA)', quantity: 1 },
+  ]
 };
 
 /**
- * دالة جلب الأسئلة وتحويلها إلى كائنات تفاعلية
+ * 1. دالة التوليد التلقائي للوحدات
  */
-export const getAdvisorQuestions = async (stars: number): Promise<AdvisorQuestion[]> => {
-  const { data, error } = await supabase
-    .from('hotel_criteria')
-    .select('*')
-    .eq('is_active', true)
-    .order('criterion_number', { ascending: true });
+export const generateDefaultUnits = (stars: number): UnitDefinition[] => {
+  const safeStars = Math.max(1, Math.min(5, stars));
+  const defaults = MANDATORY_FACILITIES[safeStars] || MANDATORY_FACILITIES[1];
+  
+  return defaults.map(def => ({
+    id: crypto.randomUUID(),
+    type: def.type as any,
+    name: def.name || '',
+    quantity: def.quantity || 1,
+    bedrooms: 1,
+    bathrooms: 1,
+    hasLivingRoom: false,
+    hasDining: false,
+    kitchenType: 'None'
+  }));
+};
 
-  if (error || !data) {
-    console.error("Error fetching questions:", error);
-    return [];
-  }
-
+/**
+ * 2. جلب قائمة التعهدات التشغيلية
+ */
+export const getOperationalStandards = async (stars: number): Promise<string[]> => {
   const starCol = `star_${stars}`;
-  const questions: AdvisorQuestion[] = [];
+  
+  const { data } = await supabase
+    .from('hotel_criteria')
+    .select(`criteria_name_ar, ${starCol}, category`)
+    .eq('is_active', true)
+    .or('category.ilike.%نظامي%,category.ilike.%تشغيلي%,category.ilike.%موظفون%,category.ilike.%نظافة%');
 
+  if (!data) return [];
+
+  const standards: string[] = [];
   data.forEach((row: any) => {
-    // 1. قراءة القيمة وتحديد الإلزامية
-    const rawVal = String(row[starCol] || '').trim();
-    const isMandatory = rawVal.includes('إلزامي') || rawVal.includes('الزامي') || rawVal === '1' || valIsBooleanTrue(rawVal);
-    const points = parseInt(row.points || '0');
-
-    // إذا لم يكن إلزامياً وليس له نقاط، نتجاوزه
-    if (!isMandatory && (!points || points === 0)) return;
-
-    const text = row.criteria_name_ar || '';
-    const category = row.category || 'عام';
-
-    // 2. تحديد المرحلة (Phase)
-    let phase: AdvisorPhase = 'REGULATORY'; // الافتراضي
-    
-    // البحث في الخريطة
-    for (const [key, val] of Object.entries(CATEGORY_MAP)) {
-      if (category.includes(key)) {
-        phase = val;
-        break;
-      }
+    const val = String(row[starCol] || '').trim();
+    const isMandatory = val.includes('إلزامي') || val === '1' || val.toLowerCase() === 'true';
+    if (isMandatory && row.criteria_name_ar) {
+      standards.push(row.criteria_name_ar);
     }
-    
-    // تصحيح المرحلة بناءً على الكلمات المفتاحية في النص
-    if (text.includes('مساحة') || text.includes('عرض') || text.includes('ارتفاع') || text.includes('م²') || text.includes('سم')) {
-        phase = 'CONSTRUCTION';
-    } else if (text.includes('سرير') || text.includes('مرتبة') || text.includes('تلفزيون') || text.includes('ثلاجة')) {
-        phase = 'FURNISHING';
-    }
-
-    // 3. تحديد نوع السؤال وربطه بالوحدات
-    let answerType: 'YES_NO' | 'NUMBER' | 'UNIT_SELECTION' = 'YES_NO';
-    let relatedUnitType: string | undefined = undefined;
-
-    // منطق ربط الكلمات المفتاحية بأنواع الوحدات في UnitBuilder
-    if (text.includes('حجم الغرفة') || (text.includes('مساحة') && text.includes('الغرف'))) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Room';
-    } else if (text.includes('حجم الشقة') || (text.includes('مساحة') && text.includes('الشقة'))) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Apartment';
-    } else if (text.includes('استقبال') && (text.includes('كاونتر') || text.includes('مكتب'))) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Reception';
-    } else if (text.includes('مطعم') && (text.includes('وجود') || text.includes('واحد'))) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Restaurant';
-    } else if (text.includes('مطبخ') && (text.includes('مركزي') || text.includes('رئيسي'))) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Kitchen';
-    } else if (text.includes('مقهى') || text.includes('كوفي')) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'CoffeeShop';
-    } else if (text.includes('مصلى') || text.includes('صلاة')) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'PrayerRoom';
-    } else if (text.includes('دورة مياه') && text.includes('عامة')) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'PublicToilet';
-    } else if (text.includes('مغسلة') && (text.includes('ملابس') || text.includes('مركزية'))) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Laundry';
-    } else if (text.includes('ذوي الاحتياجات') && (text.includes('تخصيص') || text.includes('وحدات'))) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Accessible';
-    } else if (text.includes('رياضي') || text.includes('لياقة') || text.includes('Gym')) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Gym';
-    } else if (text.includes('مسبح')) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'Pool';
-    } else if (text.includes('اجتماعات') || text.includes('مؤتمرات')) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'MeetingRoom';
-    } else if (text.includes('أعمال') && text.includes('مركز')) {
-        answerType = 'UNIT_SELECTION'; relatedUnitType = 'BusinessCenter';
-    } else if (text.includes('مواقف') && (text.includes('سيارات') || text.includes('تخصيص'))) {
-         // نتأكد أنه لا يسأل عن عرض الموقف بل عن وجوده
-         if (!text.includes('عرض') && !text.includes('طول')) {
-             answerType = 'UNIT_SELECTION'; relatedUnitType = 'Parking';
-         }
-    }
-
-    // 4. صياغة السؤال للعرض
-    let displayQuestion = text;
-    if (answerType === 'UNIT_SELECTION') {
-       displayQuestion = `هذا البند يتطلب توفير وحدة/مرفق: "${text}". هل قمت بإضافته للمخطط؟`;
-    } else if (text.includes('م²') || text.includes('سم')) {
-       displayQuestion = `هل التزمت بالمعيار الهندسي: ${text}؟`;
-    } else {
-       displayQuestion = `هل يتوفر لديكم: ${text}؟`;
-    }
-
-    questions.push({
-      id: String(row.criterion_number),
-      phase: phase,
-      text: displayQuestion,
-      requirement: text,
-      isMandatory: isMandatory,
-      points: points,
-      answerType: answerType,
-      relatedUnitType: relatedUnitType
-    });
   });
 
-  return questions;
+  return standards;
 };
 
 /**
- * دالة تحديد أنواع الوحدات الإلزامية حسب الفئة (1-5 نجوم)
- * تستخدم لعرض الشارات الحمراء في نافذة الوحدات
+ * 3. جلب متطلبات الفرش
  */
-export const getMandatoryUnitTypes = async (stars: number): Promise<string[]> => {
-    // 1. القواعد الثابتة (V2 Standards Hardcoded Logic)
-    const mandatoryTypes: Set<string> = new Set();
-
-    // أ. أساسيات لكل الفئات (1-5)
-    mandatoryTypes.add('Reception');
-    mandatoryTypes.add('Lobby');
-    mandatoryTypes.add('PrayerRoom');
-    mandatoryTypes.add('PublicToilet'); // دورات مياه عامة
-
-    // ب. نجمتين وأكثر (2+)
-    if (stars >= 2) {
-        mandatoryTypes.add('CoffeeShop'); // غالباً مطلوب تقديم مشروبات
-    }
-
-    // ج. 3 نجوم وأكثر (3+)
-    if (stars >= 3) {
-        mandatoryTypes.add('Restaurant'); // مطعم رئيسي
-        mandatoryTypes.add('Kitchen');    // مطبخ للمطعم
-        mandatoryTypes.add('Accessible'); // غرفة ذوي الهمم (1%)
-        mandatoryTypes.add('Parking');    // مواقف سيارات
-    }
-
-    // د. 4 نجوم وأكثر (4+)
-    if (stars >= 4) {
-        mandatoryTypes.add('Gym');
-        mandatoryTypes.add('Laundry');     // خدمة غسيل
-        mandatoryTypes.add('MeetingRoom'); // قاعات
-    }
-
-    // هـ. 5 نجوم (5)
-    if (stars >= 5) {
-        mandatoryTypes.add('Pool');           // مسبح
-        mandatoryTypes.add('BusinessCenter'); // مركز أعمال
-        mandatoryTypes.add('Spa');            // سبا
-    }
-
-    // 2. التحقق من قاعدة البيانات (Fallback)
-    // لجلب أي وحدة إضافية قد تكون محددة كـ "إلزامي" في الجدول ولم نذكرها
-    const { data } = await supabase
-      .from('hotel_criteria')
-      .select('criteria_name_ar, star_' + stars)
-      .eq('is_active', true);
+export const getFurnishingStandards = async (stars: number): Promise<string[]> => {
+  const starCol = `star_${stars}`;
   
-    if (data) {
-        const starCol = `star_${stars}`;
-        data.forEach((row: any) => {
-          const val = String(row[starCol] || '').trim();
-          const isMandatory = val.includes('إلزامي') || val === '1' || val.toLowerCase() === 'true';
-          
-          if (isMandatory) {
-            const text = row.criteria_name_ar || '';
-            // التقاط الكلمات المفتاحية
-            if (text.includes('مسبح')) mandatoryTypes.add('Pool');
-            if (text.includes('نادي صحي')) mandatoryTypes.add('Gym');
-            if (text.includes('مغسلة')) mandatoryTypes.add('Laundry');
-            if (text.includes('مطبخ')) mandatoryTypes.add('Kitchen');
-            if (text.includes('دورة مياه') && text.includes('عامة')) mandatoryTypes.add('PublicToilet');
-          }
-        });
+  const { data } = await supabase
+    .from('hotel_criteria')
+    .select(`criteria_name_ar, ${starCol}, category`)
+    .eq('is_active', true)
+    .or('category.ilike.%أثاث%,category.ilike.%فرش%,category.ilike.%مراتب%');
+
+  if (!data) return [];
+
+  const standards: string[] = [];
+  data.forEach((row: any) => {
+    const val = String(row[starCol] || '').trim();
+    const isMandatory = val.includes('إلزامي') || val === '1' || val.toLowerCase() === 'true';
+    if (isMandatory && row.criteria_name_ar) {
+      standards.push(row.criteria_name_ar);
     }
-  
-    return Array.from(mandatoryTypes);
+  });
+  return standards;
 };
 
-// دالة مساعدة للقيم المنطقية
-const valIsBooleanTrue = (val: string) => val.toLowerCase() === 'true';
-
 /**
- * حساب التكلفة التقديرية (مع دعم الوحدات الجديدة)
+ * 4. حساب التكلفة التقديرية
  */
-export const calculateEstimatedCost = async (units: any[], stars: number): Promise<{ total: number; breakdown: any[] }> => {
+export const calculateEstimatedCost = async (units: UnitDefinition[], stars: number): Promise<{ total: number; breakdown: any[] }> => {
     const { data: products } = await supabase.from('products').select('*').eq('is_active', true);
     if (!products) return { total: 0, breakdown: [] };
     
@@ -250,14 +166,9 @@ export const calculateEstimatedCost = async (units: any[], stars: number): Promi
 
     products.forEach(p => {
         let qty = 0;
-        // حساب الكميات
         if (p.calc_type === 'per_facility') {
-            // إذا كان المنتج يتبع مرفق (مثل أجهزة الجيم تتبع Gym)
-            if (p.required_facility === 'General' || unitTypes.has(p.required_facility)) {
-                qty = 1;
-            }
+            if (p.required_facility === 'General' || unitTypes.has(p.required_facility)) qty = 1;
         } else {
-            // إذا كان المنتج يتبع وحدة (مثل سرير يتبع Single Room)
             units.forEach(u => {
                 if (p.valid_unit_types === 'All' || p.valid_unit_types?.includes(u.type)) {
                     qty += u.quantity * (p.qty_multiplier || 1);
@@ -266,8 +177,11 @@ export const calculateEstimatedCost = async (units: any[], stars: number): Promi
         }
 
         if (qty > 0) {
-            // تحديد السعر حسب الجودة (حالياً نأخذ المتوسط كتقدير)
-            const price = p.price_ready_med || p.price_ready_eco || 0;
+            let price = 0;
+            if (stars <= 3) price = p.price_ready_eco || 0;
+            else if (stars === 4) price = p.price_ready_med || 0;
+            else price = p.price_custom_high || p.price_ready_med || 0;
+
             const cost = qty * price;
             total += cost;
             breakdown.push({ name: p.name_ar, qty, cost });
@@ -275,4 +189,53 @@ export const calculateEstimatedCost = async (units: any[], stars: number): Promi
     });
 
     return { total, breakdown };
+};
+
+/**
+ * 5. دالة مساعدة لمعرفة الأنواع الإلزامية
+ */
+export const getMandatoryUnitTypes = async (stars: number): Promise<string[]> => {
+  const safeStars = Math.max(1, Math.min(5, stars));
+  const defaults = MANDATORY_FACILITIES[safeStars] || MANDATORY_FACILITIES[1];
+  return defaults.map(u => u.type as string);
+};
+
+// ... (الكود السابق كما هو)
+
+/**
+ * 6. جلب كافة الاشتراطات (مرجع كامل)
+ * هذه الدالة تجلب كل الاشتراطات (إنشائي، عام، تشغيلي، أثاث) للفئة المحددة
+ * لغرض عرضها في التقرير كدليل مرجعي
+ */
+export const getAllCriteriaForStars = async (stars: number) => {
+  const starCol = `star_${stars}`;
+  
+  const { data } = await supabase
+    .from('hotel_criteria')
+    .select(`criteria_name_ar, category, ${starCol}`)
+    .eq('is_active', true)
+    .order('category', { ascending: true }); // ترتيب حسب القسم
+
+  if (!data) return [];
+
+  // تصفية الاشتراطات المطلوبة لهذه الفئة فقط
+  const criteriaList = data
+    .filter((row: any) => {
+      const val = String(row[starCol] || '').trim();
+      // الشرط: أن يكون إلزامياً أو له نقاط (مطلوب)
+      return val.includes('إلزامي') || val === '1' || val.toLowerCase() === 'true';
+    })
+    .map((row: any) => ({
+      category: row.category || 'عام',
+      name: row.criteria_name_ar
+    }));
+
+  // تجميعها حسب القسم (Categories)
+  const grouped: Record<string, string[]> = {};
+  criteriaList.forEach(item => {
+    if (!grouped[item.category]) grouped[item.category] = [];
+    grouped[item.category].push(item.name);
+  });
+
+  return grouped;
 };

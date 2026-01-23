@@ -82,49 +82,6 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 8, color: '#888', marginBottom: 2 },
   summaryValue: { fontSize: 10, fontWeight: 'bold', color: '#1a2a3a' },
 
-  // === ALERTS SECTION (NEW) ===
-  alertsContainer: {
-    marginBottom: 20,
-    flexDirection: 'column',
-    gap: 10
-  },
-  alertBoxRed: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fee2e2',
-    borderWidth: 1,
-    borderRadius: 5,
-    padding: 8,
-    marginBottom: 5
-  },
-  alertBoxBlue: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#dbeafe',
-    borderWidth: 1,
-    borderRadius: 5,
-    padding: 8,
-    marginBottom: 5
-  },
-  alertTitleRed: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#991b1b',
-    marginBottom: 4,
-    textAlign: 'right'
-  },
-  alertTitleBlue: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#1e40af',
-    marginBottom: 4,
-    textAlign: 'right'
-  },
-  alertItem: {
-    fontSize: 8,
-    color: '#374151',
-    textAlign: 'right',
-    marginBottom: 2
-  },
-
   // === TABLE STYLES ===
   groupHeader: {
     backgroundColor: '#1a2a3a',
@@ -173,6 +130,55 @@ const styles = StyleSheet.create({
   badgeMandatory: { color: '#dc2626', fontSize: 7 }, 
   badgeOptional: { color: '#16a34a', fontSize: 7 },
 
+  // === CRITERIA SECTION (NEW) ===
+  criteriaSection: {
+    marginTop: 20,
+    padding: 10,
+  },
+  criteriaCategoryBox: {
+    marginBottom: 10,
+    backgroundColor: '#F8F9FA',
+    padding: 8,
+    borderRadius: 5,
+    borderRightWidth: 3,
+    borderRightColor: '#1a2a3a'
+  },
+  categoryTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#D4AF37',
+    marginBottom: 5,
+    textAlign: 'right'
+  },
+  criteriaRow: {
+    flexDirection: 'row-reverse',
+    marginBottom: 3,
+    alignItems: 'flex-start'
+  },
+  bulletPoint: {
+    width: 15,
+    fontSize: 10,
+    color: '#1B365D',
+    textAlign: 'center',
+    marginTop: 0
+  },
+  criteriaText: {
+    flex: 1,
+    fontSize: 9,
+    color: '#333',
+    textAlign: 'right',
+    lineHeight: 1.4
+  },
+  criteriaIntro: {
+    fontSize: 10,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 15,
+    padding: 10,
+    backgroundColor: '#fffbeb',
+    borderRadius: 5
+  },
+
   // === FOOTER ===
   footer: {
     position: 'absolute',
@@ -198,17 +204,19 @@ interface BOQProps {
         regulatoryAlerts: string[];
         areaAlerts: string[];
     };
+    // إضافة الخاصية الجديدة
+    fullCriteria?: Record<string, string[]>;
   }; 
   projectInfo: { name: string, stars: number };
   user: any;
 }
 
 export const HotelBOQDocument: React.FC<BOQProps> = ({ data, projectInfo, user }) => {
-  // فك تفكيك البيانات للهيكل الجديد
-  const { proposal, validation } = data;
+  const { proposal, validation, fullCriteria } = data;
 
   return (
     <Document>
+      {/* الصفحة الأولى: الملخص وجدول الأسعار */}
       <Page size="A4" style={styles.page}>
         
         {/* 1. HEADER */}
@@ -244,32 +252,7 @@ export const HotelBOQDocument: React.FC<BOQProps> = ({ data, projectInfo, user }
           </View>
         </View>
 
-        {/* 3. VALIDATION REPORT (NEW SECTION) */}
-        {(validation.missingMandatory.length > 0 || validation.regulatoryAlerts.length > 0) && (
-           <View style={styles.alertsContainer}>
-              {/* النواقص الإلزامية */}
-              {validation.missingMandatory.length > 0 && (
-                 <View style={styles.alertBoxRed}>
-                    <Text style={styles.alertTitleRed}>تنبيه: نواقص إلزامية للحصول على الترخيص</Text>
-                    {validation.missingMandatory.map((item, idx) => (
-                       <Text key={idx} style={styles.alertItem}>• {item}</Text>
-                    ))}
-                 </View>
-              )}
-              
-              {/* الاشتراطات التنظيمية */}
-              {validation.regulatoryAlerts.length > 0 && (
-                 <View style={styles.alertBoxBlue}>
-                    <Text style={styles.alertTitleBlue}>تنبيهات تنظيمية وإجرائية (خارج نطاق التجهيز):</Text>
-                    {validation.regulatoryAlerts.map((item, idx) => (
-                       <Text key={idx} style={styles.alertItem}>• {item}</Text>
-                    ))}
-                 </View>
-              )}
-           </View>
-        )}
-
-        {/* 4. DETAILED GROUPS */}
+        {/* 3. DETAILED GROUPS (PRODUCTS) */}
         {proposal.groups.map((group: any, i: number) => (
           <View key={i}>
             <Text style={styles.groupHeader} break={false}>{group.title}</Text>
@@ -335,7 +318,7 @@ export const HotelBOQDocument: React.FC<BOQProps> = ({ data, projectInfo, user }
           </View>
         ))}
 
-        {/* 5. FOOTER */}
+        {/* 4. FOOTER */}
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
              UKRA.SA | تقرير المستشار الفندقي الذكي | تم الإنشاء بواسطة: {user?.name || 'زائر'}
@@ -346,6 +329,51 @@ export const HotelBOQDocument: React.FC<BOQProps> = ({ data, projectInfo, user }
         </View>
 
       </Page>
+      
+      {/* الصفحة الثانية: الدليل المرجعي للاشتراطات (صفحة جديدة) */}
+      {fullCriteria && Object.keys(fullCriteria).length > 0 && (
+        <Page size="A4" style={styles.page}>
+           {/* Header again for new page */}
+           <View style={styles.headerContainer} fixed>
+             <View style={styles.titleBox}>
+               <Text style={styles.mainTitle}>الدليل المرجعي للاشتراطات</Text>
+               <Text style={styles.subTitle}>قائمة التحقق الرسمية - تصنيف {projectInfo.stars} نجوم</Text>
+             </View>
+             <View style={styles.logoBox}>
+               <Image src="/logo.png" style={styles.logoImage} />
+             </View>
+           </View>
+
+           <View style={styles.criteriaSection}>
+             <Text style={styles.criteriaIntro}>
+               تشمل القائمة التالية كافة الاشتراطات (الإنشائية، العامة، التشغيلية) المطلوبة لتصنيف {projectInfo.stars} نجوم وفق وزارة السياحة. يرجى التأكد من استيفائها للحصول على الترخيص.
+             </Text>
+
+             {Object.keys(fullCriteria).map((category, index) => (
+               <View key={index} style={styles.criteriaCategoryBox} wrap={false}>
+                 <Text style={styles.categoryTitle}>{category}</Text>
+                 {fullCriteria[category].map((item: string, i: number) => (
+                   <View key={i} style={styles.criteriaRow}>
+                     <Text style={styles.bulletPoint}>•</Text>
+                     <Text style={styles.criteriaText}>{item}</Text>
+                   </View>
+                 ))}
+               </View>
+             ))}
+           </View>
+
+           {/* Footer */}
+           <View style={styles.footer} fixed>
+             <Text style={styles.footerText}>
+                UKRA.SA | تقرير المستشار الفندقي الذكي | تم الإنشاء بواسطة: {user?.name || 'زائر'}
+             </Text>
+             <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => (
+               `${pageNumber} / ${totalPages}`
+             )} />
+           </View>
+        </Page>
+      )}
+
     </Document>
   );
 };

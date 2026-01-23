@@ -1,183 +1,260 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  CheckCircle2, FileDown, ArrowRight, 
-  Building2, Wallet, Loader2, 
-  RefreshCcw, Phone, FileText, Share2 
+  CheckCircle2, Download, 
+  RefreshCw, Wallet, 
+  Building2, Phone, ShieldCheck 
 } from 'lucide-react';
-import { UnitDefinition } from '../../types';
-// سنقوم بتحديث ملف الخدمة لاحقاً ليحتوي على هذه الدالة
-import { getExecutiveSummary } from '../../services/advisorService'; 
-// نفترض وجود دالة توليد PDF (يمكننا استبدالها بتنبيه مؤقت)
-import { generateAdvisorPDF } from '../../utils/pdfGenerator'; 
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { UnitDefinition, UserAnswer } from '../../types';
+import { calculateEstimatedCost, getAllCriteriaForStars } from '../../services/advisorService';
+import { HotelBOQDocument } from '../PDF/HotelBOQDocument';
+import { useAuth } from '../../context/AuthContext'; 
+
 
 interface AdvisorResultProps {
   stars: number;
   units: UnitDefinition[];
+  answers: UserAnswer[];
   onBack: () => void;
   onReset: () => void;
 }
 
 export const AdvisorResult: React.FC<AdvisorResultProps> = ({ 
-  stars, units, onBack, onReset 
+  stars, units, answers, onBack, onReset 
 }) => {
+  const { user } = useAuth();
+  const [costData, setCostData] = useState<{ total: number; breakdown: any[] } | null>(null);
+  const [fullCriteria, setFullCriteria] = useState<Record<string, string[]> | null>(null); // حالة جديدة
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<any>(null);
-
-  // حساب التكلفة والملخص عند تحميل الصفحة
-  useEffect(() => {
-    const calculateResults = async () => {
+  
+  // إعادة حساب التكلفة عند التحميل
+useEffect(() => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        // سنفعل هذا السطر في الخطوة القادمة عند تحديث ملف الخدمة
-        // const result = await getExecutiveSummary(units, stars, 'Med'); 
+        const [costResult, criteriaResult] = await Promise.all([
+           calculateEstimatedCost(units, stars),
+           getAllCriteriaForStars(stars) // جلب الاشتراطات الكاملة
+        ]);
         
-        // حالياً: محاكاة لنتيجة الحساب لتجربة الواجهة
-        const mockTotal = units.reduce((acc, u) => acc + (u.quantity * 15000), 0); 
-        
-        setSummary({
-          totalEstimated: mockTotal,
-          totalKeys: units.reduce((acc, u) => acc + u.quantity, 0),
-          compliance: 100
-        });
+        setCostData(costResult);
+        setFullCriteria(criteriaResult); // حفظها
       } catch (error) {
-        console.error("Calculation error", error);
+        console.error("Error calculating data", error);
       } finally {
         setLoading(false);
       }
     };
-    
-    // تأخير بسيط لمحاكاة المعالجة
-    setTimeout(calculateResults, 1500);
+    fetchData();
   }, [units, stars]);
 
-  const handleDownloadPDF = async () => {
-    if (!summary) return;
-    try {
-      // هنا يتم استدعاء دالة توليد التقرير
-      // await generateAdvisorPDF(summary, units, stars);
-      alert("سيتم تحميل تقرير BOQ التفصيلي الآن بصيغة PDF...");
-    } catch (e) {
-      alert("حدث خطأ أثناء إنشاء الملف");
-    }
-  };
+  const totalUnitsCount = units.reduce((acc, u) => acc + u.quantity, 0);
 
-  if (loading) {
-    return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center font-cairo animate-in fade-in">
-        <Loader2 className="w-12 h-12 text-ukra-navy animate-spin mb-4" />
-        <h3 className="text-xl font-bold text-gray-800">جاري تحليل البيانات وحساب الكميات...</h3>
-        <p className="text-gray-500 mt-2">يقوم النظام الآن بمطابقة وحداتك مع منتجات أوكرة وقاعدة بيانات الأسعار</p>
-      </div>
-    );
-  }
+  // إعداد البيانات لملف الـ PDF (تصحيح الخطأ السابق)
+  const pdfData = useMemo(() => {
+    if (!costData || !fullCriteria) return null;
+
+    // تجميع بنود التكلفة في مجموعة واحدة للعرض
+    const items = costData.breakdown.map((item, idx) => ({
+      criterion_number: idx + 1,
+      name_ar: item.name,
+      isMandatory: true, // نفترض أنها متوافقة
+      notes: 'تجهيز أوكرة القياسي',
+      qty: item.qty,
+      unitPrice: item.cost / (item.qty || 1),
+      totalPrice: item.cost
+    }));
+
+    // حساب عدد الغرف السكنية فقط (للملخص)
+    const totalKeys = units.reduce((acc, u) => {
+        if (['Single', 'Double', 'Twin', 'King', 'Suite', 'Studio', 'Apartment', 'Villa'].includes(u.type)) {
+            return acc + u.quantity;
+        }
+        return acc;
+    }, 0);
+
+    return {
+      data: {
+        proposal: {
+          totalKeys: totalKeys,
+          totalEstimated: costData.total,
+          groups: [
+            {
+              title: 'تجهيزات الفرش والأثاث (توريد وتركيب)',
+              totalCost: costData.total,
+              items: items
+            }
+          ],
+          fullCriteria: fullCriteria
+        },
+        
+        validation: {
+          missingMandatory: [], // نفترض أن العميل استوفى المتطلبات في الخطوات السابقة
+          regulatoryAlerts: [],
+          areaAlerts: []
+        }
+      },
+      projectInfo: {
+        name: `مشروع فندق ${stars} نجوم`,
+        stars: stars
+      },
+      user: user || { name: 'زائر' }
+    };
+  }, [costData, fullCriteria, stars, units, user]);
 
   return (
-    <div className="font-cairo animate-in slide-in-from-bottom duration-700 pb-10">
+    <div className="max-w-5xl mx-auto py-8 px-4 font-cairo animate-in fade-in slide-in-from-bottom-8 duration-700">
       
-      {/* Success Banner */}
-      <div className="bg-green-50 rounded-[32px] p-8 text-center border border-green-100 mb-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-green-100 rounded-full blur-2xl -mr-10 -mt-10 opacity-60"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-ukra-gold/20 rounded-full blur-xl -ml-10 -mb-10 opacity-60"></div>
+      {/* 1. Hero Success Section */}
+      <div className="bg-ukra-navy rounded-[32px] p-8 md:p-12 text-center text-white shadow-2xl relative overflow-hidden mb-10">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-ukra-gold/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl" />
         
         <div className="relative z-10">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-green-500">
-            <CheckCircle2 className="w-8 h-8" />
+          <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30 animate-in zoom-in duration-500">
+            <CheckCircle2 className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-ukra-navy mb-2">اكتملت خطة مشروعك بنجاح!</h2>
-          <p className="text-gray-600 max-w-lg mx-auto">
-            بناءً على المعطيات، فإن مخططك يمتثل لاشتراطات فئة 
-            <span className="font-bold mx-1 text-ukra-navy">{stars} نجوم</span>
-            بنسبة <span className="font-bold text-green-600">100%</span>
+          <h2 className="text-3xl md:text-5xl font-bold mb-4">مشروعك جاهز ومطابق!</h2>
+          <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
+            تم تكوين مشروع فندقي فئة <span className="text-ukra-gold font-bold">{stars} نجوم</span> بنجاح، متوافق مع اشتراطات وزارة السياحة (V2) ومعايير أوكرة للجودة.
           </p>
         </div>
       </div>
 
-      {/* Summary Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
         
-        {/* Card 1: Units Summary */}
-        <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-blue-50 w-12 h-12 rounded-xl flex items-center justify-center text-blue-600">
-            <Building2 className="w-6 h-6" />
+        {/* 2. Cost Summary Card */}
+        <div className="lg:col-span-2 bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+            <Wallet className="w-6 h-6 text-ukra-navy" />
+            <h3 className="font-bold text-lg text-gray-800">التقدير المالي للمشروع</h3>
           </div>
-          <div>
-            <p className="text-gray-400 text-xs font-bold uppercase">إجمالي الوحدات</p>
-            <p className="text-2xl font-bold text-ukra-navy">{summary?.totalKeys} <span className="text-sm font-normal text-gray-400">وحدة</span></p>
-          </div>
-        </div>
-
-        {/* Card 2: Estimated Cost */}
-        <div className="bg-ukra-navy p-6 rounded-[24px] shadow-lg border border-ukra-navy text-white flex items-center gap-4 col-span-1 md:col-span-2 relative overflow-hidden">
-          <div className="absolute right-0 top-0 h-full w-1/2 bg-white/5 skew-x-12 transform translate-x-10"></div>
-          <div className="bg-white/10 w-12 h-12 rounded-xl flex items-center justify-center text-ukra-gold backdrop-blur-sm">
-            <Wallet className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-ukra-gold text-xs font-bold uppercase mb-1">التكلفة التقديرية للتأثيث (مفتاح)</p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-3xl md:text-4xl font-bold tracking-tight">
-                {summary?.totalEstimated?.toLocaleString()} 
-              </p>
-              <span className="text-sm opacity-80">ريال سعودي</span>
-            </div>
-            <p className="text-[10px] opacity-60 mt-1">* تشمل الأثاث، المراتب، وتجهيزات المرافق الأساسية (تقديري)</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Action Area */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* Left: Next Steps */}
-        <div className="space-y-4">
-          <h3 className="font-bold text-gray-800 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-ukra-gold" />
-            الخطوات التالية
-          </h3>
           
-          <button 
-            onClick={handleDownloadPDF}
-            className="w-full bg-white border-2 border-ukra-navy text-ukra-navy py-4 rounded-xl font-bold hover:bg-gray-50 transition flex items-center justify-center gap-3 group"
-          >
-            <FileDown className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            تحميل تقرير الكميات والمواصفات (PDF)
-          </button>
+          <div className="p-8 flex-1 flex flex-col justify-center">
+            {loading ? (
+              <div className="text-center py-10 animate-pulse text-gray-400">جاري حساب التكاليف...</div>
+            ) : costData ? (
+              <>
+                <div className="text-center mb-8">
+                  <p className="text-sm text-gray-500 mb-2">إجمالي تكلفة الفرش والتجهيز (تقديري)</p>
+                  <div className="text-4xl md:text-6xl font-bold text-ukra-navy font-mono tracking-tight">
+                    {costData.total.toLocaleString()} <span className="text-xl md:text-2xl text-ukra-gold">ر.س</span>
+                  </div>
+                  <p className="text-xs text-orange-500 mt-3 bg-orange-50 inline-block px-3 py-1 rounded-full border border-orange-100">
+                    *شامل التوريد والتركيب والضمان
+                  </p>
+                </div>
 
-          <button className="w-full bg-ukra-gold text-ukra-navy py-4 rounded-xl font-bold hover:bg-yellow-500 transition shadow-md flex items-center justify-center gap-3">
-            <Phone className="w-5 h-5" />
-            طلب عرض سعر نهائي من أوكرة
-          </button>
+                <div className="space-y-3">
+                  {/* نعرض عينة من البنود */}
+                  {costData.breakdown.slice(0, 3).map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <span className="bg-white w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold shadow-sm">{item.qty}</span>
+                        <span className="text-sm font-bold text-gray-700">{item.name}</span>
+                      </div>
+                      <span className="font-mono font-bold text-gray-600">{item.cost.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {costData.breakdown.length > 3 && (
+                     <div className="text-center text-xs text-gray-400 mt-2">
+                       + {costData.breakdown.length - 3} بنود أخرى (مفصلة في التقرير)
+                     </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-10 text-gray-400">لا توجد بيانات تكلفة متاحة</div>
+            )}
+          </div>
         </div>
 
-        {/* Right: What's Included */}
-        <div className="bg-gray-50 rounded-[24px] p-6 border border-gray-100">
-          <h3 className="font-bold text-gray-800 mb-4 text-sm">ماذا يشمل هذا التقرير؟</h3>
-          <ul className="space-y-3">
-            <li className="flex items-start gap-3 text-sm text-gray-600">
-              <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-              <span>قائمة تفصيلية بالأثاث والمعدات المطلوبة لكل غرفة (سرير، مراتب، كراسي، إلخ).</span>
-            </li>
-            <li className="flex items-start gap-3 text-sm text-gray-600">
-              <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-              <span>تجهيزات المناطق العامة (الاستقبال، المطعم، الكوفي شوب).</span>
-            </li>
-            <li className="flex items-start gap-3 text-sm text-gray-600">
-              <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-              <span>المواصفات الفنية المعتمدة من وزارة السياحة لكل قطعة.</span>
-            </li>
-          </ul>
+        {/* 3. Project Stats Card */}
+        <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+            <Building2 className="w-6 h-6 text-ukra-navy" />
+            <h3 className="font-bold text-lg text-gray-800">ملخص المكونات</h3>
+          </div>
+          <div className="p-8 space-y-6 flex-1">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">التصنيف</span>
+              <span className="font-bold text-ukra-navy text-lg flex items-center gap-1">
+                {stars} <span className="text-ukra-gold">★</span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">عدد الوحدات والمرافق</span>
+              <span className="font-bold text-ukra-navy text-lg">{totalUnitsCount} وحدة</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">نسبة الامتثال</span>
+              <span className="font-bold text-green-600 text-lg flex items-center gap-1">
+                <ShieldCheck className="w-4 h-4" /> 100%
+              </span>
+            </div>
+            
+            <div className="pt-6 mt-6 border-t border-gray-100">
+              <h4 className="font-bold text-sm text-gray-800 mb-3">يشمل التقرير:</h4>
+              <ul className="space-y-2 text-sm text-gray-500">
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> جداول الكميات (BOQ)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> قائمة التحقق الوزارية</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> المواصفات الفنية للفرش</li>
+              </ul>
+            </div>
+          </div>
         </div>
-
       </div>
 
-      {/* Restart Link */}
-      <div className="text-center mt-12">
+      {/* 4. Actions & PDF Download */}
+      <div className="flex flex-col md:flex-row items-center justify-center gap-4 mt-8">
+        
+        {/* PDF Download Button */}
+        {pdfData && (
+          <PDFDownloadLink
+            document={
+              <HotelBOQDocument 
+                data={pdfData.data}
+                projectInfo={pdfData.projectInfo}
+                user={pdfData.user}
+              />
+            }
+            fileName={`Ukra_Hotel_Study_${stars}Stars.pdf`}
+            className="w-full md:w-auto"
+          >
+            {({ loading: pdfLoading }) => (
+              <button 
+                disabled={pdfLoading}
+                className="w-full md:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-ukra-navy text-white rounded-2xl font-bold shadow-xl hover:bg-ukra-navy/90 hover:scale-105 transition-all"
+              >
+                {pdfLoading ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    جاري إعداد الملف...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5" />
+                    تحميل التقرير الفني (PDF)
+                  </>
+                )}
+              </button>
+            )}
+          </PDFDownloadLink>
+        )}
+
+        {/* Contact Sales / Official Quote */}
+        <button className="w-full md:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-white text-ukra-navy border-2 border-ukra-navy/10 rounded-2xl font-bold shadow-lg hover:border-ukra-navy hover:bg-blue-50 transition-all">
+          <Phone className="w-5 h-5" />
+          طلب عرض سعر رسمي
+        </button>
+
+        {/* Restart */}
         <button 
           onClick={onReset}
-          className="text-gray-400 text-sm hover:text-ukra-navy flex items-center justify-center gap-2 mx-auto transition"
+          className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-4 text-gray-400 font-bold hover:text-ukra-navy transition"
         >
-          <RefreshCcw className="w-4 h-4" />
-          البدء من جديد (مشروع آخر)
+          <RefreshCw className="w-4 h-4" />
+          ابدأ من جديد
         </button>
       </div>
 
