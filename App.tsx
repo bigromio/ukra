@@ -19,14 +19,19 @@ import { HotelAdvisor } from './pages/HotelAdvisor'; // Imported
 import FurnitureStore from './pages/FurnitureStore';
 import { CartProvider } from './context/CartContext';
 import Checkout from './pages/Checkout';
+import { ClientOrders } from './pages/ClientOrders';
 
-// Unified Protected Route for v6
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-     return <Navigate to="/client-login" replace />;
+  const { isAuthenticated: isStaffAuthenticated } = useAuth();
+  
+  // التحقق من وجود جلسة عميل (WhatsApp Login) أو جلسة موظف
+  const isClientAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  const hasClientId = !!localStorage.getItem('ukra_client_id');
+
+  if (!isStaffAuthenticated && !(isClientAuthenticated && hasClientId)) {
+      return <Navigate to="/client-login" replace />;
   }
+  
   return <>{children}</>;
 };
 
@@ -57,6 +62,20 @@ const AppContent = () => {
         <Route path="/admin-login" element={<Layout><Login /></Layout>} />
         <Route path="/client-login" element={<Layout><ClientAuth /></Layout>} />
         
+        <Route path="/client-orders" element={
+        <ProtectedRoute>
+          <Layout>
+            <ClientOrders />
+          </Layout>
+        </ProtectedRoute>
+      } />
+
+      {/* تحديث مسار الداشبورد العام (للموظفين والأدمن) */}
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      } />
         {/* Unified Dashboard (Admin & Client) */}
         <Route path="/dashboard" element={
           <ProtectedRoute>

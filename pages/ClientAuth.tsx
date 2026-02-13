@@ -1,40 +1,47 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Phone, ArrowRight, ShieldCheck } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useCart } from '../context/CartContext'; 
+import { Phone, ArrowRight, ShieldCheck, Loader } from 'lucide-react';
 
-// لاحظ: نستخدم export const بدلاً من export default ليتوافق مع App.tsx
 export const ClientAuth = () => {
   const navigate = useNavigate();
+  const { refreshCart } = useCart(); 
+
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
   const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
 
-  // --- دالة إرسال الرمز ---
+  // دالة مساعدة لتنسيق الرقم (توحيد الصيغة 966)
+  const formatPhoneNumber = (rawPhone: string) => {
+    let formatted = rawPhone.replace(/\D/g, ''); // حذف أي رموز
+    if (formatted.startsWith('05')) {
+      formatted = '966' + formatted.substring(1);
+    } else if (formatted.startsWith('5')) {
+      formatted = '966' + formatted;
+    }
+    return formatted;
+  };
+
+  // --- 1. إرسال الرمز ---
   const sendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // 1. توليد رمز عشوائي
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(code);
 
-      // 2. تنسيق الرقم (إزالة الصفر في البداية وإضافة 966)
-      let formattedPhone = phone.replace(/\D/g, '');
-      if (formattedPhone.startsWith('05')) {
-        formattedPhone = '966' + formattedPhone.substring(1);
-      } else if (formattedPhone.startsWith('5')) {
-        formattedPhone = '966' + formattedPhone;
-      }
+      const finalPhone = formatPhoneNumber(phone);
+      console.log("Sending OTP to:", finalPhone);
 
-      // 3. إرسال الرمز عبر بوت الواتساب
       const response = await fetch('http://167.86.73.97:8080/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          number: formattedPhone,
+          number: finalPhone,
           message: `رمز التحقق للدخول إلى أوكرة هو: *${code}*\nلا تشارك هذا الرمز مع أحد.`
         })
       });
@@ -42,58 +49,94 @@ export const ClientAuth = () => {
       if (response.ok) {
         setStep('otp');
       } else {
-        alert('فشل في إرسال الرمز، يرجى المحاولة لاحقاً');
+        alert('فشل في إرسال الرمز، يرجى المحاولة لاحقاً.');
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
-      alert('حدث خطأ أثناء الاتصال بالخادم');
+      alert('حدث خطأ في الاتصال');
     } finally {
       setLoading(false);
     }
   };
 
-  // --- دالة التحقق من الرمز ---
-  const verifyOtp = (e: React.FormEvent) => {
+  // --- 2. التحقق وتسجيل العميل ---
+const verifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     if (otp === generatedOtp) {
-      // الرمز صحيح!
-      
-      // حفظ حالة الدخول (يمكنك تعديل هذا الجزء ليتوافق مع AuthContext لاحقاً)
-      localStorage.setItem('ukra_user_phone', phone);
-      localStorage.setItem('isAuthenticated', 'true');
-      
-      // التوجيه للوحة التحكم (Dashboard) لأنها المسار الموجود في App.tsx
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 500);
+      try {
+        const finalPhone = formatPhoneNumber(phone);
+
+        // 1. البحث عن العميل
+        let { data: customer, error } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('phone', finalPhone)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        // 2. إنشاء عميل جديد إذا لم يوجد
+        if (!customer) {
+          const { data: newCustomer, error: insertError } = await supabase
+            .from('customers')
+            .insert([{ 
+                phone: finalPhone, 
+                full_name: 'عميل جديد'
+            }])
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          customer = newCustomer;
+        }
+
+        // 3. حفظ البيانات في المتصفح (تأكد من هذه المسميات)
+        localStorage.setItem('ukra_client_id', customer.id);
+        localStorage.setItem('ukra_client_phone', customer.phone);
+        localStorage.setItem('isAuthenticated', 'true'); 
+        localStorage.setItem('userRole', 'customer'); // أضف هذا لتمييزه عن الموظف
+
+        // 4. تحديث حالة السلة
+        await refreshCart(); 
+
+        // 5. التوجيه مع تحديث الصفحة (لضمان قراءة localStorage)
+        // بدلاً من navigate فقط، سنستخدم window.location لضمان إعادة تحميل الحالات
+        window.location.href = '/client-orders'; 
+
+      } catch (err: any) {
+        console.error('Login error:', err);
+        alert('حدث خطأ أثناء الدخول، تأكد من اتصالك بالإنترنت');
+      } finally {
+        setLoading(false);
+      }
     } else {
       alert('رمز التحقق غير صحيح');
       setLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen pt-24 pb-12 flex flex-col items-center justify-center px-4 bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div className="bg-[#3A5A7B] p-8 text-center">
-          <h2 className="text-3xl font-display font-bold text-white mb-2">مرحباً بك</h2>
-          <p className="text-blue-100">سجل دخولك لمتابعة طلباتك ومشاريعك</p>
+    <div className="min-h-screen pt-24 pb-12 flex flex-col items-center justify-center px-4 bg-gray-50" dir="rtl">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        <div className="bg-[#1a2a3a] p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-[#c5a059] opacity-10 transform -skew-y-6"></div>
+          <h2 className="text-3xl font-bold text-white mb-2 relative z-10">تسجيل دخول العملاء</h2>
+          <p className="text-blue-100 relative z-10 text-sm">أدخل رقم جوالك لمتابعة طلباتك وعروض الأسعار</p>
         </div>
 
         <div className="p-8">
           {step === 'phone' ? (
             <form onSubmit={sendOtp} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">رقم الجوال</label>
-                <div className="relative">
-                  <Phone className="absolute right-3 top-3 h-5 w-5 text-gray-400" />
+                <label className="block text-sm font-bold text-gray-700 mb-2">رقم الجوال</label>
+                <div className="relative group">
+                  <Phone className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-focus-within:text-[#c5a059] transition-colors" />
                   <input
                     type="tel"
                     required
                     placeholder="05xxxxxxxx"
-                    className="w-full pr-10 pl-4 py-3 rounded-lg border focus:ring-2 focus:ring-[#BFA78A] focus:border-transparent outline-none text-left"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#c5a059] focus:ring-4 focus:ring-[#c5a059]/10 outline-none transition-all text-right font-num"
                     dir="ltr"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -103,36 +146,36 @@ export const ClientAuth = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#3A5A7B] text-white py-3 rounded-xl font-bold hover:bg-[#2c445d] transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-[#1a2a3a] text-white py-4 rounded-xl font-bold hover:bg-[#c5a059] transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
               >
-                {loading ? 'جاري الإرسال...' : 'إرسال رمز التحقق'}
-                {!loading && <ArrowRight className="h-5 w-5" />}
+                {loading ? <Loader className="animate-spin" /> : <>إرسال رمز التحقق <ArrowRight className="h-5 w-5" /></>}
               </button>
             </form>
           ) : (
             <form onSubmit={verifyOtp} className="space-y-6">
-              <div className="text-center mb-6">
-                <ShieldCheck className="h-12 w-12 text-[#BFA78A] mx-auto mb-2" />
-                <p className="text-gray-600">تم إرسال رمز التحقق إلى {phone}</p>
+              <div className="text-center mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <ShieldCheck className="h-10 w-10 text-[#c5a059] mx-auto mb-2" />
+                <p className="text-gray-600 text-sm">تم إرسال الرمز إلى <b dir="ltr">{formatPhoneNumber(phone)}</b></p>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">رمز التحقق</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">رمز التحقق</label>
                 <input
                   type="text"
                   required
-                  placeholder="******"
-                  className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-[#BFA78A] focus:border-transparent outline-none text-center text-2xl tracking-widest"
+                  placeholder="------"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#c5a059] focus:ring-4 focus:ring-[#c5a059]/10 outline-none text-center text-3xl tracking-[1em] font-num"
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
+                  autoFocus
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#3A5A7B] text-white py-3 rounded-xl font-bold hover:bg-[#2c445d] transition-colors"
+                className="w-full bg-[#1a2a3a] text-white py-4 rounded-xl font-bold hover:bg-[#c5a059] transition-all shadow-lg"
               >
                 {loading ? 'جاري التحقق...' : 'تأكيد الدخول'}
               </button>
@@ -140,7 +183,7 @@ export const ClientAuth = () => {
               <button
                 type="button"
                 onClick={() => setStep('phone')}
-                className="w-full text-gray-500 text-sm hover:text-[#3A5A7B]"
+                className="w-full text-gray-400 text-sm hover:text-[#1a2a3a] transition-colors"
               >
                 تغيير رقم الجوال
               </button>
