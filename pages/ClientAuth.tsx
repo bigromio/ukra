@@ -68,7 +68,7 @@ const verifyOtp = async (e: React.FormEvent) => {
       try {
         const finalPhone = formatPhoneNumber(phone);
 
-        // 1. البحث عن العميل
+        // 1. البحث عن العميل في Supabase
         let { data: customer, error } = await supabase
           .from('customers')
           .select('*')
@@ -92,18 +92,25 @@ const verifyOtp = async (e: React.FormEvent) => {
           customer = newCustomer;
         }
 
-        // 3. حفظ البيانات في المتصفح (تأكد من هذه المسميات)
+        // --- التعديل الهام هنا ---
+        // 3. تنظيف البيانات القديمة وحفظ بيانات العميل الجديد
+        // نستخدم clear لمسح أي جلسة موظف قديمة كانت مفتوحة على نفس المتصفح
+        localStorage.clear(); 
+        
         localStorage.setItem('ukra_client_id', customer.id);
         localStorage.setItem('ukra_client_phone', customer.phone);
         localStorage.setItem('isAuthenticated', 'true'); 
-        localStorage.setItem('userRole', 'customer'); // أضف هذا لتمييزه عن الموظف
+        localStorage.setItem('userRole', 'customer');
 
         // 4. تحديث حالة السلة
         await refreshCart(); 
 
-        // 5. التوجيه مع تحديث الصفحة (لضمان قراءة localStorage)
-        // بدلاً من navigate فقط، سنستخدم window.location لضمان إعادة تحميل الحالات
-        window.location.href = '/client-orders'; 
+        // 5. التوجيه الصحيح لـ HashRouter
+        // نستخدم الـ # لضمان أن HashRouter يلتقط المسار فوراً
+        window.location.href = '#/client-orders'; 
+        
+        // في حال لم يتحدث المتصفح تلقائياً
+        window.location.reload();
 
       } catch (err: any) {
         console.error('Login error:', err);
@@ -116,6 +123,7 @@ const verifyOtp = async (e: React.FormEvent) => {
       setLoading(false);
     }
   };
+  
   return (
     <div className="min-h-screen pt-24 pb-12 flex flex-col items-center justify-center px-4 bg-gray-50" dir="rtl">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
