@@ -83,7 +83,8 @@ const verifyOtp = async (e: React.FormEvent) => {
             .from('customers')
             .insert([{ 
                 phone: finalPhone, 
-                full_name: 'عميل جديد'
+                full_name: 'عميل جديد',
+                role: 'customer' // تعيين دور افتراضي للجدد
             }])
             .select()
             .single();
@@ -92,24 +93,25 @@ const verifyOtp = async (e: React.FormEvent) => {
           customer = newCustomer;
         }
 
-        // --- التعديل الهام هنا ---
-        // 3. تنظيف البيانات القديمة وحفظ بيانات العميل الجديد
-        // نستخدم clear لمسح أي جلسة موظف قديمة كانت مفتوحة على نفس المتصفح
+        // --- التعديل الجوهري لقراءة الصلاحيات ---
+        
+        // 3. تنظيف البيانات القديمة
         localStorage.clear(); 
         
+        // 4. حفظ البيانات الجديدة
         localStorage.setItem('ukra_client_id', customer.id);
         localStorage.setItem('ukra_client_phone', customer.phone);
         localStorage.setItem('isAuthenticated', 'true'); 
-        localStorage.setItem('userRole', 'customer');
+        
+        // هنا السحر: نقرأ الدور من قاعدة البيانات. إذا كان فارغاً نعتبره عميل
+        const userRole = customer.role || 'customer';
+        localStorage.setItem('userRole', userRole);
 
-        // 4. تحديث حالة السلة
+        // 5. تحديث حالة السلة
         await refreshCart(); 
 
-        // 5. التوجيه الصحيح لـ HashRouter
-        // نستخدم الـ # لضمان أن HashRouter يلتقط المسار فوراً
-        window.location.href = '#/client-orders'; 
-        
-        // في حال لم يتحدث المتصفح تلقائياً
+        // 6. التوجيه للداشبورد الموحد
+        window.location.href = '#/dashboard'; 
         window.location.reload();
 
       } catch (err: any) {
@@ -123,7 +125,7 @@ const verifyOtp = async (e: React.FormEvent) => {
       setLoading(false);
     }
   };
-  
+
   return (
     <div className="min-h-screen pt-24 pb-12 flex flex-col items-center justify-center px-4 bg-gray-50" dir="rtl">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">

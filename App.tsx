@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { CartProvider } from './context/CartContext';
 import { Layout } from './components/Layout';
 import { InstallModal } from './components/InstallModal';
 import { useGeofence } from './hooks/useGeofence';
@@ -16,16 +17,13 @@ import { WoodCatalog } from './pages/WoodCatalog';
 import { BookAppointment } from './pages/BookAppointment';
 import { HotelAdvisor } from './pages/HotelAdvisor';
 import FurnitureStore from './pages/FurnitureStore';
-import { CartProvider } from './context/CartContext';
 import Checkout from './pages/Checkout';
-import { ClientOrders } from './pages/ClientOrders';
 
-// --- منطق الحماية الموحد ---
+// حماية المسار: يسمح للموظفين (AuthContext) والعملاء (LocalStorage)
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { isAuthenticated: isStaff } = useAuth();
   const isClient = localStorage.getItem('isAuthenticated') === 'true';
 
-  // إذا لم يكن موظفاً ولا عميلاً، نوجهه لصفحة دخول العميل
   if (!isStaff && !isClient) {
     return <Navigate to="/client-login" replace />;
   }
@@ -38,39 +36,31 @@ const AppContent = () => {
     <>
       <InstallModal />
       <Routes>
-        {/* المسارات العامة مع Layout */}
+        {/* Public Routes */}
         <Route path="/" element={<Layout><Home /></Layout>} />
-        <Route path="/design-request" element={<Layout><DesignRequest /></Layout>} />
         <Route path="/store" element={<Layout><FurnitureStore /></Layout>} />
+        <Route path="/wood-catalog" element={<Layout><WoodCatalog /></Layout>} />
+        <Route path="/hotel-advisor" element={<Layout><HotelAdvisor /></Layout>} />
+        <Route path="/design-request" element={<Layout><DesignRequest /></Layout>} />
         <Route path="/furniture-quote" element={<Layout><FurnitureQuoteForm /></Layout>} />
         <Route path="/feasibility-study" element={<Layout><FeasibilityStudy /></Layout>} />
-        <Route path="/checkout" element={<Layout><Checkout /></Layout>} />
-        <Route path="/wood-catalog" element={<Layout><WoodCatalog /></Layout>} />
         <Route path="/book-appointment" element={<Layout><BookAppointment /></Layout>} />
-        <Route path="/hotel-advisor" element={<Layout><HotelAdvisor /></Layout>} />
+        <Route path="/checkout" element={<Layout><Checkout /></Layout>} />
         
-        {/* مسارات تسجيل الدخول */}
-        <Route path="/admin-login" element={<Layout><Login /></Layout>} />
+        {/* Auth Routes */}
         <Route path="/client-login" element={<Layout><ClientAuth /></Layout>} />
+        <Route path="/admin-login" element={<Layout><Login /></Layout>} />
         
-        {/* مسار طلبات العميل - محمي */}
-        <Route path="/client-orders" element={
-          <ProtectedRoute>
-            <Layout>
-              <ClientOrders />
-            </Layout>
-          </ProtectedRoute>
-        } />
-
-        {/* مسار الداشبورد (للموظفين والأدمن) - محمي */}
+        {/* Unified Dashboard Route (The Smart Hub) */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
         } />
 
-        {/* التحويلات والمسارات الافتراضية */}
-        <Route path="/my-requests" element={<Navigate to="/client-orders" replace />} />
+        {/* Redirects */}
+        <Route path="/client-orders" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/my-requests" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
