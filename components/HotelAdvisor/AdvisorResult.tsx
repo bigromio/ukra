@@ -1,15 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  CheckCircle2, Download, 
-  RefreshCw, Wallet, 
-  Building2, Phone, ShieldCheck 
+  FileText, CheckCircle, Download, 
+  RefreshCw, Building2, ShieldCheck, 
+  Loader2, ChevronDown, ChevronUp,
+  Armchair, BedDouble, Bath, Tv, 
+  Utensils, LayoutGrid, AlertCircle, Coins
 } from 'lucide-react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
-import { UnitDefinition, UserAnswer } from '../../types';
-import { calculateEstimatedCost, getAllCriteriaForStars } from '../../services/advisorService';
 import { HotelBOQDocument } from '../PDF/HotelBOQDocument';
-import { useAuth } from '../../context/AuthContext'; 
-
+import { UnitDefinition, UserAnswer } from '../../types';
+import { 
+  calculateComprehensiveReport, 
+  ComprehensiveReport, 
+  DetailedBOQItem,
+  ProductDisplayCategory 
+} from '../../services/advisorService';
 
 interface AdvisorResultProps {
   stars: number;
@@ -19,243 +24,331 @@ interface AdvisorResultProps {
   onReset: () => void;
 }
 
+// خريطة ترجمة التصنيفات للعربية مع الأيقونات
+const CATEGORY_CONFIG: Record<ProductDisplayCategory, { label: string; icon: React.ElementType }> = {
+  'ROOM_FURNITURE': { label: 'أثاث الغرف والأجنحة', icon: BedDouble },
+  'PUBLIC_FURNITURE': { label: 'أثاث المناطق العامة والاستقبال', icon: Armchair },
+  'LINENS': { label: 'المفارش والبياضات والمراتب', icon: LayoutGrid },
+  'ROOM_APPLIANCES': { label: 'أجهزة الغرف والإلكترونيات', icon: Tv },
+  'PUBLIC_APPLIANCES': { label: 'أجهزة المرافق والخدمات', icon: Utensils },
+  'ROOM_ACCESSORIES': { label: 'إكسسوارات الغرف والضيافة', icon: FileText },
+  'PUBLIC_ACCESSORIES': { label: 'إكسسوارات المناطق العامة', icon: Building2 },
+  'BATHROOM': { label: 'تجهيزات ومستلزمات الحمام', icon: Bath },
+  'OTHER': { label: 'تجهيزات أخرى', icon: CheckCircle },
+};
+
 export const AdvisorResult: React.FC<AdvisorResultProps> = ({ 
   stars, units, answers, onBack, onReset 
 }) => {
-  const { user } = useAuth();
-  const [costData, setCostData] = useState<{ total: number; breakdown: any[] } | null>(null);
-  const [fullCriteria, setFullCriteria] = useState<Record<string, string[]> | null>(null); // حالة جديدة
   const [loading, setLoading] = useState(true);
+  const [report, setReport] = useState<ComprehensiveReport | null>(null);
+  const [activeTab, setActiveTab] = useState<'MANDATORY' | 'RECOMMENDED' | 'REQS'>('MANDATORY');
   
-  // إعادة حساب التكلفة عند التحميل
-useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  // حالة فتح/إغلاق الأقسام (Accordion)
+  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
+
+  // 1. حساب التقرير عند التحميل
+  useEffect(() => {
+    const generateReport = async () => {
       try {
-        const [costResult, criteriaResult] = await Promise.all([
-           calculateEstimatedCost(units, stars),
-           getAllCriteriaForStars(stars) // جلب الاشتراطات الكاملة
-        ]);
-        
-        setCostData(costResult);
-        setFullCriteria(criteriaResult); // حفظها
+        setLoading(true);
+        const result = await calculateComprehensiveReport(stars, units);
+        setReport(result);
+        // فتح جميع الأقسام افتراضياً
+        const allCats = Object.keys(CATEGORY_CONFIG) as ProductDisplayCategory[];
+        const initialState = allCats.reduce((acc, cat) => ({ ...acc, [cat]: true }), {});
+        setExpandedCats(initialState);
       } catch (error) {
-        console.error("Error calculating data", error);
+        console.error("Error calculating report:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, [units, stars]);
+    generateReport();
+  }, [stars, units]);
 
-  const totalUnitsCount = units.reduce((acc, u) => acc + u.quantity, 0);
+  const toggleCategory = (cat: string) => {
+    setExpandedCats(prev => ({ ...prev, [cat]: !prev[cat] }));
+  };
 
-  // إعداد البيانات لملف الـ PDF (تصحيح الخطأ السابق)
-  const pdfData = useMemo(() => {
-    if (!costData || !fullCriteria) return null;
+  if (loading || !report) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-12 h-12 text-ukra-navy animate-spin" />
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-gray-800">جاري بناء جدول الكميات (BOQ)...</h3>
+          <p className="text-gray-500">نطابق المنتجات مع اشتراطات الفئة {stars} نجوم</p>
+        </div>
+      </div>
+    );
+  }
 
-    // تجميع بنود التكلفة في مجموعة واحدة للعرض
-    const items = costData.breakdown.map((item, idx) => ({
-      criterion_number: idx + 1,
-      name_ar: item.name,
-      isMandatory: true, // نفترض أنها متوافقة
-      notes: 'تجهيز أوكرة القياسي',
-      qty: item.qty,
-      unitPrice: item.cost / (item.qty || 1),
-      totalPrice: item.cost
-    }));
+  // دالة مساعدة لرسم جدول المنتجات
+  const renderProductTable = (items: DetailedBOQItem[], categoryKey: string) => {
+    if (!items || items.length === 0) return null;
+    
+    const config = CATEGORY_CONFIG[categoryKey as ProductDisplayCategory] || CATEGORY_CONFIG['OTHER'];
+    const isExpanded = expandedCats[categoryKey];
 
-    // حساب عدد الغرف السكنية فقط (للملخص)
-    const totalKeys = units.reduce((acc, u) => {
-        if (['Single', 'Double', 'Twin', 'King', 'Suite', 'Studio', 'Apartment', 'Villa'].includes(u.type)) {
-            return acc + u.quantity;
-        }
-        return acc;
-    }, 0);
+    return (
+      <div className="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+        {/* Header */}
+        <button 
+          onClick={() => toggleCategory(categoryKey)}
+          className="w-full flex items-center justify-between p-5 bg-gray-50/50 hover:bg-gray-50 transition"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-ukra-navy/10 p-2 rounded-lg text-ukra-navy">
+              <config.icon className="w-5 h-5" />
+            </div>
+            <div className="text-right">
+              <h3 className="font-bold text-lg text-gray-800">{config.label}</h3>
+              <p className="text-xs text-gray-500">{items.length} منتجات</p>
+            </div>
+          </div>
+          {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+        </button>
 
-    return {
-      data: {
-        proposal: {
-          totalKeys: totalKeys,
-          totalEstimated: costData.total,
-          groups: [
-            {
-              title: 'تجهيزات الفرش والأثاث (توريد وتركيب)',
-              totalCost: costData.total,
-              items: items
-            }
-          ],
-          fullCriteria: fullCriteria
-        },
-        
-        validation: {
-          missingMandatory: [], // نفترض أن العميل استوفى المتطلبات في الخطوات السابقة
-          regulatoryAlerts: [],
-          areaAlerts: []
-        }
-      },
-      projectInfo: {
-        name: `مشروع فندق ${stars} نجوم`,
-        stars: stars
-      },
-      user: user || { name: 'زائر' }
-    };
-  }, [costData, fullCriteria, stars, units, user]);
+        {/* Table Body */}
+        {isExpanded && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-right">
+              <thead className="bg-gray-50 text-gray-600 border-y border-gray-100">
+                <tr>
+                  <th className="px-6 py-3 font-bold">المنتج والمواصفات</th>
+                  <th className="px-6 py-3 font-bold text-center">الكمية</th>
+                  <th className="px-6 py-3 font-bold text-center">السعر الفردي</th>
+                  <th className="px-6 py-3 font-bold text-center">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {items.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-blue-50/30 transition">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-gray-800">{item.name}</div>
+                      <div className="text-xs text-gray-500 mt-1 font-mono">{item.sku}</div>
+                      
+                      {/* عرض المعايير المرتبطة */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {item.criteriaRefs.map((ref, i) => (
+                          <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                            يغطي معيار #{ref.id}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono font-bold bg-gray-50/30">
+                      {item.quantity}
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono text-gray-600">
+                      {item.unitPrice.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono font-bold text-ukra-navy">
+                      {item.totalPrice.toLocaleString()} ر.س
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 font-cairo animate-in fade-in slide-in-from-bottom-8 duration-700">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       
-      {/* 1. Hero Success Section */}
-      <div className="bg-ukra-navy rounded-[32px] p-8 md:p-12 text-center text-white shadow-2xl relative overflow-hidden mb-10">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-ukra-gold/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl" />
+      {/* 1. Hero Section: Financial Summary */}
+      <div className="bg-ukra-navy text-white rounded-3xl p-8 shadow-2xl mb-8 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-64 h-64 bg-ukra-gold/10 rounded-full blur-3xl -ml-20 -mt-20"></div>
         
-        <div className="relative z-10">
-          <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30 animate-in zoom-in duration-500">
-            <CheckCircle2 className="w-10 h-10 text-white" />
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-center md:text-right">
+            <h1 className="text-3xl font-bold mb-2">تقرير التجهيز الشامل</h1>
+            <p className="text-white/70">
+              تصنيف {stars} نجوم • {report.stats.totalUnits} وحدة فندقية
+            </p>
           </div>
-          <h2 className="text-3xl md:text-5xl font-bold mb-4">مشروعك جاهز ومطابق!</h2>
-          <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            تم تكوين مشروع فندقي فئة <span className="text-ukra-gold font-bold">{stars} نجوم</span> بنجاح، متوافق مع اشتراطات وزارة السياحة (V2) ومعايير أوكرة للجودة.
-          </p>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 min-w-[280px] text-center">
+            <p className="text-sm text-ukra-gold font-bold mb-1 flex items-center justify-center gap-2">
+              <Coins className="w-4 h-4" />
+              إجمالي التكلفة التقديرية
+            </p>
+            <div className="text-4xl font-bold font-mono tracking-tight">
+              {report.totalEstimatedCost.toLocaleString()}
+              <span className="text-lg mr-2 font-normal opacity-70">ر.س</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+      {/* 2. Navigation Tabs */}
+      <div className="flex overflow-x-auto gap-2 mb-8 pb-2 scrollbar-hide">
+        <button
+          onClick={() => setActiveTab('MANDATORY')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold whitespace-nowrap transition-all ${
+            activeTab === 'MANDATORY' 
+              ? 'bg-ukra-navy text-white shadow-lg ring-2 ring-ukra-navy ring-offset-2' 
+              : 'bg-white text-gray-500 hover:bg-gray-50 border border-gray-200'
+          }`}
+        >
+          <ShieldCheck className="w-5 h-5" />
+          أساسيات الرخصة (إلزامي)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('RECOMMENDED')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold whitespace-nowrap transition-all ${
+            activeTab === 'RECOMMENDED' 
+              ? 'bg-ukra-gold text-ukra-navy shadow-lg ring-2 ring-ukra-gold ring-offset-2' 
+              : 'bg-white text-gray-500 hover:bg-gray-50 border border-gray-200'
+          }`}
+        >
+          <CheckCircle className="w-5 h-5" />
+          باقات التميز (موصى به)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('REQS')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold whitespace-nowrap transition-all ${
+            activeTab === 'REQS' 
+              ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-600 ring-offset-2' 
+              : 'bg-white text-gray-500 hover:bg-gray-50 border border-gray-200'
+          }`}
+        >
+          <FileText className="w-5 h-5" />
+          المتطلبات الإنشائية والتشغيلية
+        </button>
+      </div>
+
+      {/* 3. Content Area */}
+      <div className="space-y-4">
         
-        {/* 2. Cost Summary Card */}
-        <div className="lg:col-span-2 bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
-            <Wallet className="w-6 h-6 text-ukra-navy" />
-            <h3 className="font-bold text-lg text-gray-800">التقدير المالي للمشروع</h3>
-          </div>
-          
-          <div className="p-8 flex-1 flex flex-col justify-center">
-            {loading ? (
-              <div className="text-center py-10 animate-pulse text-gray-400">جاري حساب التكاليف...</div>
-            ) : costData ? (
-              <>
-                <div className="text-center mb-8">
-                  <p className="text-sm text-gray-500 mb-2">إجمالي تكلفة الفرش والتجهيز (تقديري)</p>
-                  <div className="text-4xl md:text-6xl font-bold text-ukra-navy font-mono tracking-tight">
-                    {costData.total.toLocaleString()} <span className="text-xl md:text-2xl text-ukra-gold">ر.س</span>
-                  </div>
-                  <p className="text-xs text-orange-500 mt-3 bg-orange-50 inline-block px-3 py-1 rounded-full border border-orange-100">
-                    *شامل التوريد والتركيب والضمان
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {/* نعرض عينة من البنود */}
-                  {costData.breakdown.slice(0, 3).map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                      <div className="flex items-center gap-3">
-                        <span className="bg-white w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold shadow-sm">{item.qty}</span>
-                        <span className="text-sm font-bold text-gray-700">{item.name}</span>
+        {/* TAB 1: Mandatory Products */}
+                {activeTab === 'MANDATORY' && (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    {Object.keys(report.mandatoryProducts).length === 0 ? (
+                      <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
+                        <p className="text-gray-400 font-bold">لا توجد منتجات إلزامية مفقودة.</p>
                       </div>
-                      <span className="font-mono font-bold text-gray-600">{item.cost.toLocaleString()}</span>
-                    </div>
-                  ))}
-                  {costData.breakdown.length > 3 && (
-                     <div className="text-center text-xs text-gray-400 mt-2">
-                       + {costData.breakdown.length - 3} بنود أخرى (مفصلة في التقرير)
-                     </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-10 text-gray-400">لا توجد بيانات تكلفة متاحة</div>
-            )}
-          </div>
-        </div>
+                    ) : (
+                      // --- التعديل هنا: إضافة div مع key ---
+                      Object.entries(report.mandatoryProducts).map(([catKey, items]) => (
+                        <div key={catKey}>
+                          {renderProductTable(items as DetailedBOQItem[], catKey)}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
 
-        {/* 3. Project Stats Card */}
-        <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
-            <Building2 className="w-6 h-6 text-ukra-navy" />
-            <h3 className="font-bold text-lg text-gray-800">ملخص المكونات</h3>
-          </div>
-          <div className="p-8 space-y-6 flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">التصنيف</span>
-              <span className="font-bold text-ukra-navy text-lg flex items-center gap-1">
-                {stars} <span className="text-ukra-gold">★</span>
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">عدد الوحدات والمرافق</span>
-              <span className="font-bold text-ukra-navy text-lg">{totalUnitsCount} وحدة</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">نسبة الامتثال</span>
-              <span className="font-bold text-green-600 text-lg flex items-center gap-1">
-                <ShieldCheck className="w-4 h-4" /> 100%
-              </span>
+        {/* TAB 2: Recommended Products */}
+        {activeTab === 'RECOMMENDED' && (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 flex items-center gap-3 text-yellow-800">
+              <AlertCircle className="w-5 h-5" />
+              <p className="text-sm font-bold">هذه المنتجات ليست شرطاً للرخصة، لكنها ترفع تصنيف فندقك وتزيد رضا النزلاء.</p>
             </div>
             
-            <div className="pt-6 mt-6 border-t border-gray-100">
-              <h4 className="font-bold text-sm text-gray-800 mb-3">يشمل التقرير:</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> جداول الكميات (BOQ)</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> قائمة التحقق الوزارية</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> المواصفات الفنية للفرش</li>
-              </ul>
-            </div>
+           {Object.entries(report.recommendedProducts).map(([catKey, items]) => (
+              <div key={catKey}>
+                {renderProductTable(items as DetailedBOQItem[], catKey)}
+              </div>
+            ))}
           </div>
-        </div>
-      </div>
-
-      {/* 4. Actions & PDF Download */}
-      <div className="flex flex-col md:flex-row items-center justify-center gap-4 mt-8">
-        
-        {/* PDF Download Button */}
-        {pdfData && (
-          <PDFDownloadLink
-            document={
-              <HotelBOQDocument 
-                data={pdfData.data}
-                projectInfo={pdfData.projectInfo}
-                user={pdfData.user}
-              />
-            }
-            fileName={`Ukra_Hotel_Study_${stars}Stars.pdf`}
-            className="w-full md:w-auto"
-          >
-            {({ loading: pdfLoading }) => (
-              <button 
-                disabled={pdfLoading}
-                className="w-full md:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-ukra-navy text-white rounded-2xl font-bold shadow-xl hover:bg-ukra-navy/90 hover:scale-105 transition-all"
-              >
-                {pdfLoading ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    جاري إعداد الملف...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5" />
-                    تحميل التقرير الفني (PDF)
-                  </>
-                )}
-              </button>
-            )}
-          </PDFDownloadLink>
         )}
 
-        {/* Contact Sales / Official Quote */}
-        <button className="w-full md:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-white text-ukra-navy border-2 border-ukra-navy/10 rounded-2xl font-bold shadow-lg hover:border-ukra-navy hover:bg-blue-50 transition-all">
-          <Phone className="w-5 h-5" />
-          طلب عرض سعر رسمي
-        </button>
+        {/* TAB 3: Requirements Checklists */}
+                {activeTab === 'REQS' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                    
+                    {/* 1. Construction */}
+                    {report.requirements.construction.length > 0 && (
+                      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                        <h3 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                          <Building2 className="w-5 h-5 text-blue-600" />
+                          المتطلبات الإنشائية (للمقاول)
+                        </h3>
+                        <ul className="space-y-3">
+                          {report.requirements.construction.map(req => (
+                            <li key={req.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                              <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">#{req.id}</span>
+                              <p className="text-sm text-gray-700">{req.description}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-        {/* Restart */}
-        <button 
-          onClick={onReset}
-          className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-4 text-gray-400 font-bold hover:text-ukra-navy transition"
-        >
-          <RefreshCw className="w-4 h-4" />
-          ابدأ من جديد
-        </button>
+                    {/* 2. Operational */}
+                    {report.requirements.operational.length > 0 && (
+                      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                        <h3 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                          <ShieldCheck className="w-5 h-5 text-green-600" />
+                          المتطلبات التشغيلية (للإدارة)
+                        </h3>
+                        <ul className="space-y-3">
+                          {report.requirements.operational.map(req => (
+                            <li key={req.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                              <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">#{req.id}</span>
+                              <p className="text-sm text-gray-700">{req.description}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* 3. Procedural / General (القسم الجديد المضاف) */}
+                    {report.requirements.procedural.length > 0 && (
+                      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                        <h3 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-gray-600" />
+                          المتطلبات العامة والتراخيص
+                        </h3>
+                        <ul className="space-y-3">
+                          {report.requirements.procedural.map(req => (
+                            <li key={req.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                              <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded">#{req.id}</span>
+                              <p className="text-sm text-gray-700">{req.description}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+      </div>
+
+      {/* 4. Sticky Footer Actions */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+          <button 
+            onClick={onReset}
+            className="flex items-center gap-2 text-gray-500 hover:text-red-600 font-bold px-4 py-2 rounded-xl hover:bg-red-50 transition"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>ابدأ من جديد</span>
+          </button>
+
+          {/* PDF Download Button */}
+          {report && (
+            <PDFDownloadLink
+              document={<HotelBOQDocument report={report} stars={stars} />}
+              fileName={`BOQ_Report_${stars}Stars.pdf`}
+              className="flex items-center gap-3 bg-ukra-navy text-white px-8 py-3 rounded-xl font-bold hover:bg-ukra-navy/90 hover:scale-105 transition shadow-lg w-full sm:w-auto justify-center"
+            >
+              {({ loading }) => (
+                <>
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                  <span>{loading ? 'جاري تجهيز الملف...' : 'تحميل تقرير BOQ المعتمد (PDF)'}</span>
+                </>
+              )}
+            </PDFDownloadLink>
+          )}
+        </div>
       </div>
 
     </div>

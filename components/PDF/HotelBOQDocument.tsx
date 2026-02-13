@@ -1,7 +1,9 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
+import { ComprehensiveReport, DetailedBOQItem, ProductDisplayCategory } from '../../services/advisorService';
 
-// 1. تسجيل الخطوط (Tajawal)
+// 1. تسجيل الخطوط العربية (Tajawal)
+// هذا الخط يدعم اللغة العربية بشكل ممتاز في ملفات PDF
 Font.register({
   family: 'Tajawal',
   fonts: [
@@ -10,370 +12,364 @@ Font.register({
   ]
 });
 
-// 2. التنسيق الاحترافي (Professional Layout)
+// 2. تعريف الأنماط (Styles)
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 30,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 60,
+    paddingHorizontal: 30,
     fontFamily: 'Tajawal',
-    backgroundColor: '#fff',
-    fontSize: 9
+    fontSize: 10,
+    lineHeight: 1.5,
+    color: '#333',
   },
-  
-  // === HEADER ===
-  headerContainer: {
-    flexDirection: 'row-reverse',
+  // الهيدر (Header)
+  header: {
+    flexDirection: 'row-reverse', // عكس الاتجاه لأننا عربي
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#d4af37',
+    borderBottomWidth: 2,
+    borderBottomColor: '#1a2a3a', // Navy
     paddingBottom: 10,
-    height: 60
   },
-  logoBox: {
-    width: 100,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-end'
-  },
-  logoImage: {
-    width: '100%',
-    objectFit: 'contain'
-  },
-  titleBox: {
-    flex: 1,
-    alignItems: 'flex-end'
-  },
-  mainTitle: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#1a2a3a'
+    color: '#1a2a3a',
   },
-  subTitle: {
-    fontSize: 9,
-    color: '#666',
-    marginTop: 2
-  },
-
-  // === SUMMARY CARDS ===
-  summarySection: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    backgroundColor: '#f8fafc',
-    padding: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#eee'
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    borderColor: '#ddd'
-  },
-  lastSummaryItem: {
-    flex: 1,
-    alignItems: 'center',
-    borderLeftWidth: 0
-  },
-  summaryLabel: { fontSize: 8, color: '#888', marginBottom: 2 },
-  summaryValue: { fontSize: 10, fontWeight: 'bold', color: '#1a2a3a' },
-
-  // === TABLE STYLES ===
-  groupHeader: {
-    backgroundColor: '#1a2a3a',
-    color: '#fff',
-    padding: 6,
-    marginTop: 10,
-    textAlign: 'center',
-    fontWeight: 'bold',
+  headerSub: {
     fontSize: 10,
-    borderRadius: 3
-  },
-  tableHeaderRow: {
-    flexDirection: 'row-reverse',
-    backgroundColor: '#e2e8f0',
-    borderBottomWidth: 1,
-    borderColor: '#cbd5e1',
-    paddingVertical: 6,
-    alignItems: 'center'
-  },
-  headerCell: {
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: '#475569',
-    textAlign: 'center'
-  },
-  tableRow: {
-    flexDirection: 'row-reverse',
-    borderBottomWidth: 1,
-    borderColor: '#f1f5f9',
-    paddingVertical: 5,
-    minHeight: 30,
-    alignItems: 'center'
+    color: '#64748b',
+    marginTop: 4,
   },
   
-  // Columns
-  col1: { width: '8%', textAlign: 'center' },  // Criterion
-  col2: { width: '40%', textAlign: 'right', paddingRight: 4 }, // Name
-  col3: { width: '22%', textAlign: 'right', paddingRight: 4 }, // SKU/Note
-  col4: { width: '8%', textAlign: 'center' },  // Qty
-  col5: { width: '11%', textAlign: 'center' }, // Price
-  col6: { width: '11%', textAlign: 'center' }, // Total
-
-  cellText: { fontSize: 8, color: '#334155' },
-  boldText: { fontSize: 8, fontWeight: 'bold', color: '#0f172a' },
-  smallNote: { fontSize: 7, color: '#94a3b8' },
-  badgeMandatory: { color: '#dc2626', fontSize: 7 }, 
-  badgeOptional: { color: '#16a34a', fontSize: 7 },
-
-  // === CRITERIA SECTION (NEW) ===
-  criteriaSection: {
-    marginTop: 20,
-    padding: 10,
-  },
-  criteriaCategoryBox: {
-    marginBottom: 10,
-    backgroundColor: '#F8F9FA',
-    padding: 8,
-    borderRadius: 5,
-    borderRightWidth: 3,
-    borderRightColor: '#1a2a3a'
-  },
-  categoryTitle: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#D4AF37',
-    marginBottom: 5,
-    textAlign: 'right'
-  },
-  criteriaRow: {
+  // لوحة الملخص (Summary Box)
+  summaryBox: {
     flexDirection: 'row-reverse',
-    marginBottom: 3,
-    alignItems: 'flex-start'
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 30,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  bulletPoint: {
-    width: 15,
-    fontSize: 10,
-    color: '#1B365D',
-    textAlign: 'center',
-    marginTop: 0
+  summaryItem: {
+    alignItems: 'center',
+    width: '24%',
   },
-  criteriaText: {
-    flex: 1,
-    fontSize: 9,
-    color: '#333',
-    textAlign: 'right',
-    lineHeight: 1.4
+  summaryLabel: {
+    fontSize: 8,
+    color: '#64748b',
+    marginBottom: 4,
   },
-  criteriaIntro: {
-    fontSize: 10,
-    color: '#555',
-    textAlign: 'center',
-    marginBottom: 15,
-    padding: 10,
-    backgroundColor: '#fffbeb',
-    borderRadius: 5
+  summaryValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#1a2a3a',
+  },
+  summaryCost: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#b8860b', // Gold
   },
 
-  // === FOOTER ===
+  // عناوين الأقسام
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1a2a3a',
+    textAlign: 'right',
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: '#f1f5f9',
+    padding: 6,
+    borderRightWidth: 4,
+    borderRightColor: '#1a2a3a',
+  },
+  
+  // جداول المنتجات
+  tableContainer: {
+    marginBottom: 20,
+  },
+  catTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#475569',
+    textAlign: 'right',
+    marginBottom: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#cbd5e1',
+    paddingBottom: 2,
+  },
+  tableRow: {
+    flexDirection: 'row-reverse', // المفتاح السحري لترتيب الأعمدة عربياً
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    minHeight: 24,
+    alignItems: 'center',
+  },
+  tableHeader: {
+    backgroundColor: '#1a2a3a',
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 9,
+  },
+  
+  // عرض الأعمدة (مجموعها 100%)
+  colName: { width: '40%', textAlign: 'right', paddingRight: 5 },
+  colSku: { width: '20%', textAlign: 'center', fontSize: 8 },
+  colQty: { width: '10%', textAlign: 'center' },
+  colPrice: { width: '15%', textAlign: 'center' },
+  colTotal: { width: '15%', textAlign: 'center', fontWeight: 'bold' },
+
+  // شارة المعيار
+  badge: {
+    fontSize: 7,
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8',
+    paddingHorizontal: 4,
+    borderRadius: 2,
+    marginTop: 2,
+    alignSelf: 'flex-end',
+  },
+
+  // قوائم التحقق (Checklists)
+  checkItem: {
+    flexDirection: 'row-reverse',
+    marginBottom: 6,
+    paddingRight: 10,
+  },
+  checkBullet: {
+    width: 3,
+    height: 3,
+    backgroundColor: '#94a3b8',
+    borderRadius: 2,
+    marginTop: 6,
+    marginLeft: 6,
+  },
+  
+  // الفوتر
   footer: {
     position: 'absolute',
-    bottom: 10,
-    left: 20,
-    right: 20,
+    bottom: 25,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 8,
+    color: '#94a3b8',
     borderTopWidth: 1,
-    borderColor: '#eee',
-    paddingTop: 8,
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center'
+    borderTopColor: '#f1f5f9',
+    paddingTop: 10,
   },
-  footerText: { fontSize: 7, color: '#999' },
-  pageNumber: { fontSize: 7, color: '#999' }
 });
 
-interface BOQProps {
-  data: {
-    proposal: any;
-    validation: {
-        missingMandatory: string[];
-        regulatoryAlerts: string[];
-        areaAlerts: string[];
-    };
-    // إضافة الخاصية الجديدة
-    fullCriteria?: Record<string, string[]>;
-  }; 
-  projectInfo: { name: string, stars: number };
-  user: any;
+// 3. ترجمة التصنيفات
+const CATEGORY_LABELS: Record<string, string> = {
+  'ROOM_FURNITURE': 'أثاث الغرف والأجنحة',
+  'PUBLIC_FURNITURE': 'أثاث المناطق العامة والاستقبال',
+  'LINENS': 'المفارش والبياضات والمراتب',
+  'ROOM_APPLIANCES': 'أجهزة الغرف والإلكترونيات',
+  'PUBLIC_APPLIANCES': 'أجهزة المرافق والخدمات',
+  'ROOM_ACCESSORIES': 'إكسسوارات الغرف والضيافة',
+  'PUBLIC_ACCESSORIES': 'إكسسوارات المناطق العامة',
+  'BATHROOM': 'تجهيزات ومستلزمات الحمام',
+  'OTHER': 'تجهيزات ومعدات أخرى',
+};
+
+// 4. المكون الرئيسي للوثيقة
+interface HotelBOQDocumentProps {
+  report: ComprehensiveReport;
+  stars: number;
 }
 
-export const HotelBOQDocument: React.FC<BOQProps> = ({ data, projectInfo, user }) => {
-  const { proposal, validation, fullCriteria } = data;
+export const HotelBOQDocument: React.FC<HotelBOQDocumentProps> = ({ report, stars }) => {
+  
+  // دالة لرسم جدول قسم معين
+  const renderProductSection = (
+    productsMap: Record<ProductDisplayCategory, DetailedBOQItem[]>, 
+    mainTitle: string, 
+    themeColor: string
+  ) => {
+    // تصفية الأقسام الفارغة
+    const validCategories = Object.entries(productsMap).filter(([_, items]) => items && items.length > 0);
+    
+    if (validCategories.length === 0) return null;
 
-  return (
-    <Document>
-      {/* الصفحة الأولى: الملخص وجدول الأسعار */}
-      <Page size="A4" style={styles.page}>
+    return (
+      <View break>
+        <Text style={[styles.sectionTitle, { borderRightColor: themeColor, color: themeColor }]}>
+          {mainTitle}
+        </Text>
         
-        {/* 1. HEADER */}
-        <View style={styles.headerContainer} fixed>
-          <View style={styles.titleBox}>
-            <Text style={styles.mainTitle}>تقرير المستشار الفندقي (BOQ)</Text>
-            <Text style={styles.subTitle}>دراسة الامتثال لاشتراطات وزارة السياحة</Text>
-          </View>
-          <View style={styles.logoBox}>
-            <Image src="/logo.png" style={styles.logoImage} />
-          </View>
-        </View>
-
-        {/* 2. PROJECT SUMMARY */}
-        <View style={styles.summarySection}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>المشروع</Text>
-            <Text style={styles.summaryValue}>{projectInfo.name}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>التصنيف المستهدف</Text>
-            <Text style={styles.summaryValue}>{projectInfo.stars} نجوم</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>عدد الوحدات (المفاتيح)</Text>
-            <Text style={styles.summaryValue}>{proposal.totalKeys}</Text>
-          </View>
-          <View style={styles.lastSummaryItem}>
-            <Text style={styles.summaryLabel}>التكلفة التقديرية (للمدرج)</Text>
-            <Text style={[styles.summaryValue, {color: '#d4af37'}]}>
-               {proposal.totalEstimated.toLocaleString()} SAR
-            </Text>
-          </View>
-        </View>
-
-        {/* 3. DETAILED GROUPS (PRODUCTS) */}
-        {proposal.groups.map((group: any, i: number) => (
-          <View key={i}>
-            <Text style={styles.groupHeader} break={false}>{group.title}</Text>
+        {validCategories.map(([catKey, items]) => (
+          <View key={catKey} wrap={false} style={styles.tableContainer}>
+            <Text style={styles.catTitle}>{CATEGORY_LABELS[catKey] || catKey}</Text>
             
-            <View style={styles.tableHeaderRow} break={false}>
-              <Text style={[styles.headerCell, styles.col1]}>المعيار</Text>
-              <Text style={[styles.headerCell, styles.col2]}>الاشتراط / المنتج</Text>
-              <Text style={[styles.headerCell, styles.col3]}>الملاحظات / المصدر</Text>
-              <Text style={[styles.headerCell, styles.col4]}>الكمية</Text>
-              <Text style={[styles.headerCell, styles.col5]}>السعر</Text>
-              <Text style={[styles.headerCell, styles.col6]}>الإجمالي</Text>
+            {/* Table Header */}
+            <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: themeColor }]}>
+              <Text style={styles.colName}>المنتج والمواصفات</Text>
+              <Text style={styles.colSku}>SKU</Text>
+              <Text style={styles.colQty}>الكمية</Text>
+              <Text style={styles.colPrice}>السعر</Text>
+              <Text style={styles.colTotal}>الإجمالي</Text>
             </View>
 
-            {group.items.map((item: any, idx: number) => (
-              <View key={idx} style={styles.tableRow} wrap={false}> 
-                
-                {/* Col 1 */}
-                <Text style={[styles.cellText, styles.col1]}>{item.criterion_number || '-'}</Text>
-                
-                {/* Col 2 */}
-                <View style={styles.col2}>
-                  <Text style={styles.cellText}>{item.name_ar}</Text>
-                  <Text style={item.isMandatory ? styles.badgeMandatory : styles.badgeOptional}>
-                    {item.isMandatory ? '* إلزامي' : 'اختياري (نقاط)'}
-                  </Text>
+            {/* Table Rows */}
+            {items.map((item, idx) => (
+              <View key={idx} style={[styles.tableRow, { backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }]}>
+                <View style={styles.colName}>
+                  <Text>{item.name}</Text>
+                  {/* عرض رقم المعيار المرتبط */}
+                  {item.criteriaRefs && item.criteriaRefs.length > 0 && (
+                    <Text style={styles.badge}>
+                      معيار رقم: {item.criteriaRefs[0].id}
+                    </Text>
+                  )}
                 </View>
-                
-                {/* Col 3 */}
-                <View style={styles.col3}>
-                  <Text style={styles.smallNote}>
-                     {item.sku && item.sku !== 'REG' ? item.sku : item.notes || '-'}
-                  </Text>
-                </View>
-
-                {/* Col 4 */}
-                <Text style={[styles.cellText, styles.col4]}>{item.qty}</Text>
-
-                {/* Col 5 */}
-                <Text style={[styles.cellText, styles.col5]}>
-                   {item.unitPrice > 0 ? item.unitPrice.toLocaleString() : '-'}
-                </Text>
-
-                {/* Col 6 */}
-                <Text style={[styles.boldText, styles.col6]}>
-                   {item.totalPrice > 0 ? item.totalPrice.toLocaleString() : 'تنسيق خارجي'}
-                </Text>
+                <Text style={styles.colSku}>{item.sku}</Text>
+                <Text style={styles.colQty}>{item.quantity}</Text>
+                <Text style={styles.colPrice}>{item.unitPrice.toLocaleString()}</Text>
+                <Text style={styles.colTotal}>{item.totalPrice.toLocaleString()}</Text>
               </View>
             ))}
             
-            {/* Group Total */}
-            {group.totalCost > 0 && (
-                <View style={[styles.tableRow, { backgroundColor: '#fffbf0', borderTopWidth: 1, borderColor: '#d4af37' }]} break={false}>
-                   <Text style={[styles.boldText, { flex: 1, textAlign: 'right', paddingRight: 20 }]}>
-                      إجمالي المجموعة:
-                   </Text>
-                   <Text style={[styles.boldText, styles.col6, { color: '#d4af37' }]}>
-                      {group.totalCost.toLocaleString()}
-                   </Text>
-                </View>
-            )}
-            
-            <View style={{ height: 10 }} />
+            {/* Subtotal Row */}
+            <View style={[styles.tableRow, { borderBottomWidth: 0, paddingTop: 4 }]}>
+              <Text style={[styles.colName, { textAlign: 'left', fontWeight: 'bold' }]}>إجمالي القسم:</Text>
+              <Text style={[styles.colTotal, { color: themeColor }]}>
+                {items.reduce((sum, i) => sum + i.totalPrice, 0).toLocaleString()} ر.س
+              </Text>
+            </View>
           </View>
         ))}
+      </View>
+    );
+  };
 
-        {/* 4. FOOTER */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>
-             UKRA.SA | تقرير المستشار الفندقي الذكي | تم الإنشاء بواسطة: {user?.name || 'زائر'}
-          </Text>
-          <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => (
-            `${pageNumber} / ${totalPages}`
-          )} />
+  return (
+    <Document>
+      {/* --- الصفحة الأولى: الملخص التنفيذي --- */}
+      <Page size="A4" style={styles.page}>
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>تقرير التجهيز الفندقي الشامل (BOQ)</Text>
+            <Text style={styles.headerSub}>تم الإنشاء بواسطة: مستشار أوكرة الذكي</Text>
+          </View>
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#b8860b' }}>تصنيف {stars} نجوم</Text>
+            <Text style={styles.headerSub}>{new Date().toLocaleDateString('en-GB')}</Text>
+          </View>
         </View>
 
+        {/* Dashboard Stats */}
+        <View style={styles.summaryBox}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>التكلفة التقديرية</Text>
+            <Text style={styles.summaryCost}>{report.totalEstimatedCost.toLocaleString()} ر.س</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>عدد الوحدات</Text>
+            <Text style={styles.summaryValue}>{report.stats.totalUnits}</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>الطاقة الاستيعابية</Text>
+            <Text style={styles.summaryValue}>{report.stats.totalGuests} ضيف</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>عدد الحمامات</Text>
+            <Text style={styles.summaryValue}>{report.stats.bathrooms}</Text>
+          </View>
+        </View>
+
+        {/* Introduction */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ textAlign: 'right', marginBottom: 5, fontWeight: 'bold' }}>عزيزي الشريك،</Text>
+          <Text style={{ textAlign: 'right', color: '#555', fontSize: 9 }}>
+            بناءً على المعايير التي تم تحديدها، هذا التقرير يحتوي على جداول الكميات التفصيلية (BOQ) اللازمة لتجهيز مشروعك بما يتوافق مع اشتراطات وزارة السياحة لتصنيف {stars} نجوم.
+            التقرير مقسم إلى قسمين: منتجات إلزامية (للرخصة)، ومنتجات موصى بها (للرفاهية).
+          </Text>
+        </View>
+
+        {/* Quick Requirement Summary */}
+        <View>
+          <Text style={[styles.sectionTitle, { backgroundColor: '#f8fafc', borderRightColor: '#64748b' }]}>
+            ملخص المتطلبات غير الملموسة
+          </Text>
+          <View style={{ flexDirection: 'row-reverse', gap: 20 }}>
+            {/* Construction */}
+            <View style={{ width: '48%' }}>
+              <Text style={{ fontSize: 9, fontWeight: 'bold', textAlign: 'right', marginBottom: 5 }}>متطلبات إنشائية (مقتطفات)</Text>
+              {report.requirements.construction.slice(0, 6).map((req, i) => (
+                <View key={i} style={styles.checkItem}>
+                  <View style={styles.checkBullet} />
+                  <Text style={{ fontSize: 8, color: '#444' }}>{req.description.substring(0, 50)}...</Text>
+                </View>
+              ))}
+            </View>
+            {/* Operational */}
+            <View style={{ width: '48%' }}>
+              <Text style={{ fontSize: 9, fontWeight: 'bold', textAlign: 'right', marginBottom: 5 }}>متطلبات تشغيلية (مقتطفات)</Text>
+              {report.requirements.operational.slice(0, 6).map((req, i) => (
+                <View key={i} style={styles.checkItem}>
+                  <View style={styles.checkBullet} />
+                  <Text style={{ fontSize: 8, color: '#444' }}>{req.description.substring(0, 50)}...</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.footer} fixed>تقرير أوكرة الذكي • صفحة رقم 1</Text>
       </Page>
-      
-      {/* الصفحة الثانية: الدليل المرجعي للاشتراطات (صفحة جديدة) */}
-      {fullCriteria && Object.keys(fullCriteria).length > 0 && (
-        <Page size="A4" style={styles.page}>
-           {/* Header again for new page */}
-           <View style={styles.headerContainer} fixed>
-             <View style={styles.titleBox}>
-               <Text style={styles.mainTitle}>الدليل المرجعي للاشتراطات</Text>
-               <Text style={styles.subTitle}>قائمة التحقق الرسمية - تصنيف {projectInfo.stars} نجوم</Text>
-             </View>
-             <View style={styles.logoBox}>
-               <Image src="/logo.png" style={styles.logoImage} />
-             </View>
-           </View>
 
-           <View style={styles.criteriaSection}>
-             <Text style={styles.criteriaIntro}>
-               تشمل القائمة التالية كافة الاشتراطات (الإنشائية، العامة، التشغيلية) المطلوبة لتصنيف {projectInfo.stars} نجوم وفق وزارة السياحة. يرجى التأكد من استيفائها للحصول على الترخيص.
-             </Text>
+      {/* --- الصفحات التالية: جداول المنتجات الإلزامية --- */}
+      <Page size="A4" style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>أولاً: التجهيزات الإلزامية للرخصة</Text>
+          <Text style={{ fontSize: 10, color: '#1a2a3a' }}>جدول الكميات الأساسي</Text>
+        </View>
+        
+        {renderProductSection(report.mandatoryProducts, 'قائمة المنتجات الأساسية', '#1a2a3a')}
+        
+        <Text style={styles.footer} fixed>تقرير أوكرة الذكي • التجهيزات الإلزامية</Text>
+      </Page>
 
-             {Object.keys(fullCriteria).map((category, index) => (
-               <View key={index} style={styles.criteriaCategoryBox} wrap={false}>
-                 <Text style={styles.categoryTitle}>{category}</Text>
-                 {fullCriteria[category].map((item: string, i: number) => (
-                   <View key={i} style={styles.criteriaRow}>
-                     <Text style={styles.bulletPoint}>•</Text>
-                     <Text style={styles.criteriaText}>{item}</Text>
-                   </View>
-                 ))}
-               </View>
-             ))}
-           </View>
+      {/* --- الصفحات التالية: جداول المنتجات الموصى بها + القوائم --- */}
+      <Page size="A4" style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>ثانياً: باقات التميز والمتطلبات</Text>
+          <Text style={{ fontSize: 10, color: '#b8860b' }}>الرفاهية والتشغيل</Text>
+        </View>
 
-           {/* Footer */}
-           <View style={styles.footer} fixed>
-             <Text style={styles.footerText}>
-                UKRA.SA | تقرير المستشار الفندقي الذكي | تم الإنشاء بواسطة: {user?.name || 'زائر'}
-             </Text>
-             <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => (
-               `${pageNumber} / ${totalPages}`
-             )} />
-           </View>
-        </Page>
-      )}
+        {renderProductSection(report.recommendedProducts, 'قائمة منتجات الرفاهية (موصى بها)', '#b8860b')}
 
+        {/* Full Checklists */}
+        <View break>
+          <Text style={[styles.sectionTitle, { borderRightColor: '#64748b' }]}>القوائم المرجعية الكاملة</Text>
+          
+          <Text style={[styles.catTitle, { marginTop: 10 }]}>أ. المتطلبات الإنشائية</Text>
+          {report.requirements.construction.map((req, i) => (
+            <View key={`c-${i}`} style={styles.checkItem}>
+              <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#1a2a3a', marginLeft: 5 }}>[{req.id}]</Text>
+              <Text style={{ fontSize: 8 }}>{req.description}</Text>
+            </View>
+          ))}
+
+          <Text style={[styles.catTitle, { marginTop: 15 }]}>ب. المتطلبات التشغيلية</Text>
+          {report.requirements.operational.map((req, i) => (
+            <View key={`o-${i}`} style={styles.checkItem}>
+              <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#1a2a3a', marginLeft: 5 }}>[{req.id}]</Text>
+              <Text style={{ fontSize: 8 }}>{req.description}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.footer} fixed>تقرير أوكرة الذكي • نهاية التقرير</Text>
+      </Page>
     </Document>
   );
 };

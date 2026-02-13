@@ -48,7 +48,7 @@ export interface ProductDB {
 // --- تحديث قائمة الأنواع لتشمل جميع المرافق الجديدة ---
 export type UnitType = 
   // وحدات سكنية
-  | 'Single' | 'Double' | 'Twin' | 'King' | 'Suite' | 'Studio' | 'Apartment' | 'Villa' | 'Accessible'
+  | 'Single' | 'Double' | 'Twin' | 'Triple'| 'Quad' | 'King' | 'Suite' | 'Studio' | 'Apartment' | 'Villa' | 'Accessible'
   // مرافق عامة وإدارية
   | 'Reception' | 'Lobby' | 'PublicToilet' | 'PrayerRoom' | 'MeetingRoom' | 'BusinessCenter' | 'Parking'
   // طعام وشراب

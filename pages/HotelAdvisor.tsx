@@ -43,6 +43,7 @@ export const HotelAdvisor = () => {
   const handleStructureUpdate = (newStars: number, newUnits: UnitDefinition[]) => {
     setStars(newStars);
     setUnits(newUnits);
+    console.log("Units Updated:", newUnits.length);
   };
 
   // 3. الانتقال من التكوين إلى التعهدات
