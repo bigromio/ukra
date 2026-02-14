@@ -9,6 +9,70 @@ import {
   InventoryItem 
 } from '../types';
 
+
+const WHATSAPP_API_URL = 'http://167.86.73.97:8080';
+
+
+export const processOrderAndSendWhatsApp = async (
+  orderId: string, 
+  clientPhone: string, 
+  pdfBlob: Blob
+): Promise<boolean> => {
+  try {
+    // 1. رفع ملف الـ PDF إلى Supabase Storage
+    const fileName = `order_${orderId}_${Date.now()}.pdf`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('order_files') // تأكد من إنشاء هذا الـ Bucket في Supabase
+      .upload(fileName, pdfBlob, {
+        contentType: 'application/pdf'
+      });
+
+    if (uploadError) throw uploadError;
+
+    // 2. الحصول على الرابط العام للملف
+    const { data: { publicUrl } } = supabase.storage
+      .from('order_files')
+      .getPublicUrl(fileName);
+
+    // 3. تحديث سجل الطلب في قاعدة البيانات برابط الملف
+    await supabase
+      .from('orders')
+      .update({ pdf_url: publicUrl, status: 'New' }) // حفظنا الرابط للمستقبل
+      .eq('id', orderId);
+
+    // 4. إرسال الملف للعميل عبر الواتساب
+    await fetch(`${WHATSAPP_API_URL}/send-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: clientPhone,
+        pdfUrl: publicUrl,
+        filename: `Order_${orderId}.pdf`,
+        caption: `📄 *فاتورة طلبك رقم #${orderId}*\nشكراً لاختيارك UKRA.`
+      })
+    });
+
+    // 5. إرسال نسخة للإدارة (Admin)
+    const ADMIN_PHONE = '966569159938'; // رقم الأونر
+    await fetch(`${WHATSAPP_API_URL}/send-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: ADMIN_PHONE,
+        pdfUrl: publicUrl,
+        filename: `Admin_Order_${orderId}.pdf`,
+        caption: `🔔 *طلب جديد رقم #${orderId}*\nمن العميل: ${clientPhone}`
+      })
+    });
+
+    return true;
+
+  } catch (error) {
+    console.error('Failed to process order PDF:', error);
+    return false;
+  }
+};
+
 // --- Utility Functions ---
 
 export const fileToBase64 = (file: File): Promise<string> => {
@@ -261,6 +325,35 @@ export const getProducts = async (category?: string): Promise<ProductDB[]> => {
 };
 
 // --- Orders Management ---
+
+// أضف هذه الدالة في apiService.ts
+export const createStoreOrder = async (orderData: any): Promise<{ success: boolean; orderId?: string; message?: string }> => {
+  try {
+    const { error, data } = await supabase
+      .from('orders')
+      .insert({
+        customer_id: orderData.clientId,
+        service_type: 'Store Order',
+        status: 'New', // الحالة الأولية
+        total_amount: orderData.total,
+        details: {
+          items: orderData.items,
+          address: orderData.address,
+          notes: orderData.notes,
+          shipping_cost: 0, // يمكن تعديله لاحقاً
+          payment_method: 'Pay on Delivery / Bank Transfer'
+        }
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, orderId: data.id };
+  } catch (e: any) {
+    console.error('Create Order Error:', e);
+    return { success: false, message: e.message };
+  }
+};
 
 export const fetchAllOrders = async (): Promise<any> => {
   // الربط مع جدول customers لجلب بيانات العميل
