@@ -1,5 +1,15 @@
 import { supabase } from '../lib/supabase';
-import { FurnitureQuotePayload, FeasibilityPayload, DesignRequestPayload, BookingPayload, ProductDB, Task, InventoryItem, User } from '../types';
+import { 
+  FurnitureQuotePayload, 
+  FeasibilityPayload, 
+  DesignRequestPayload, 
+  BookingPayload, 
+  ProductDB, 
+  Task, 
+  InventoryItem 
+} from '../types';
+
+// --- Utility Functions ---
 
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -10,64 +20,213 @@ export const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// --- Auth & Users (Supabase Wrapper) ---
+// --- Auth & User Management (The Core Identity) ---
 
+/**
+ * تسجيل عميل جديد (بريد إلكتروني)
+ * يقوم بإنشاء حساب في Auth وإضافة سجل في جدول العملاء
+ */
 export const registerClient = async (fullName: string, email: string, phone: string, password: string): Promise<any> => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName, phone: phone, role: 'CLIENT' }
+  try {
+    // 1. إنشاء الحساب في Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName, phone: phone }
+      }
+    });
+    
+    if (error) throw error;
+
+    if (data.user) {
+      // 2. تحديث جدول العملاء لربطه بالحساب الجديد
+      // نبحث عن العميل برقم الجوال (قد يكون مسجلاً مسبقاً عبر الواتساب)
+      const { data: existingProfile } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (existingProfile) {
+        // تحديث السجل الموجود
+        await supabase.from('customers').update({ 
+          user_id: data.user.id,
+          email: email,
+          full_name: fullName // تحديث الاسم في حال كان مختلفاً
+        }).eq('id', existingProfile.id);
+      } else {
+        // إنشاء سجل جديد في جدول العملاء
+        await supabase.from('customers').insert({
+          user_id: data.user.id,
+          email: email,
+          phone: phone,
+          full_name: fullName,
+          role: 'customer'
+        });
+      }
     }
-  });
-  
-  if (error) return { success: false, message: error.message };
-  return { success: true, user: data.user };
+
+    return { success: true, user: data.user };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
 };
 
+/**
+ * تسجيل الدخول (بريد إلكتروني)
+ * يجلب الصلاحية (Role) من جدول العملاء
+ */
 export const loginClient = async (email: string, password: string): Promise<any> => {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  
-  if (error) return { success: false, message: error.message };
-  
-  // Fetch profile to get role
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
-  
-  return { 
-    success: true, 
-    user: {
-      id: data.user.id,
-      email: data.user.email,
-      name: profile?.full_name || 'User',
-      role: profile?.role || 'CLIENT',
-      phone: profile?.phone,
-      points_balance: profile?.points_balance
-    }
-  };
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (error) throw error;
+    
+    // جلب الملف الشخصي لمعرفة الصلاحية
+    const { data: profile } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('user_id', data.user.id)
+      .single();
+    
+    return { 
+      success: true, 
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: profile?.full_name || data.user.user_metadata.full_name || 'User',
+        role: profile?.role || 'customer',
+        phone: profile?.phone,
+        address: profile?.address
+      }
+    };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
 };
+
+/**
+ * التحقق من OTP (للواتساب)
+ * يتحقق من الكود في جدول otp_codes
+ */
+export const verifyClientOTP = async (phone: string, otp: string): Promise<any> => {
+  try {
+    // التحقق من صحة الكود وصلاحيته الزمنية
+    const { data, error } = await supabase
+      .from('otp_codes')
+      .select('*')
+      .eq('phone', phone)
+      .eq('code', otp)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    if (error || !data) {
+      return { success: false, message: 'Invalid or expired OTP' };
+    }
+
+    // حذف الكود بعد الاستخدام (لزيادة الأمان)
+    await supabase.from('otp_codes').delete().eq('id', data.id);
+
+    // جلب أو إنشاء ملف العميل
+    let { data: profile } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (!profile) {
+      const { data: newProfile, error: createError } = await supabase
+        .from('customers')
+        .insert([{ phone, full_name: 'New Client', role: 'customer' }])
+        .select()
+        .single();
+      
+      if (createError) throw createError;
+      profile = newProfile;
+    }
+
+    return { 
+      success: true, 
+      user: {
+        id: profile.id, // نستخدم ID الجدول وليس Auth ID للدخول بالواتس
+        name: profile.full_name,
+        role: profile.role || 'customer',
+        phone: profile.phone
+      }
+    };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+};
+
+// --- User Management (Admin Functions) ---
 
 export const fetchAllUsers = async (): Promise<any> => {
-  const { data, error } = await supabase.from('profiles').select('*');
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
   if (error) return { success: false, message: error.message };
   return { success: true, users: data.map((u: any) => ({...u, name: u.full_name})) };
 };
 
-// [تعديل هام] البحث بالمعرف بدلاً من الإيميل لتجنب خطأ 400
-export const fetchUserRole = async (userId: string): Promise<any> => {
-  const { data, error } = await supabase.from('profiles').select('role, full_name, phone').eq('id', userId).single();
-  if (error) return { success: false };
+export const fetchUserRole = async (identifier: string): Promise<any> => {
+  // البحث سواء بالـ ID أو رقم الجوال أو user_id
+  const { data, error } = await supabase
+    .from('customers')
+    .select('role, full_name, phone')
+    .or(`id.eq.${identifier},phone.eq.${identifier},user_id.eq.${identifier}`)
+    .maybeSingle();
+    
+  if (error || !data) return { success: false };
   return { success: true, role: data.role, name: data.full_name, phone: data.phone };
 };
 
-// --- Tasks (Operational Dashboard) ---
+export const updateClientProfile = async (clientId: string, updates: any): Promise<{ success: boolean; message?: string }> => {
+  const { error } = await supabase
+    .from('customers')
+    .update(updates)
+    .eq('id', clientId);
+  return { success: !error, message: error?.message };
+};
+
+export const adminUpdateUserRole = async (userId: string, role: string): Promise<{ success: boolean; message?: string }> => {
+  const { error } = await supabase
+    .from('customers')
+    .update({ role })
+    .eq('id', userId);
+  return { success: !error, message: error?.message };
+};
+
+export const deleteClientAccount = async (clientId: string): Promise<{ success: boolean; message?: string }> => {
+  // الحذف المنطقي (Soft Delete) أفضل من الحذف الكلي للحفاظ على سجلات الطلبات
+  const { error } = await supabase
+    .from('customers')
+    .update({ is_active: false }) // تأكد من إضافة عمود is_active في الجدول
+    .eq('id', clientId);
+  return { success: !error, message: error?.message };
+};
+
+// --- Operational Dashboard (Tasks & Inventory) ---
 
 export const fetchDailyTasks = async (userId?: string): Promise<Task[]> => {
-  let query = supabase.from('tasks').select('*').eq('due_date', new Date().toISOString().split('T')[0]);
-  if (userId) {
-    query = query.eq('assigned_to', userId);
+  try {
+    let query = supabase.from('tasks').select('*').eq('is_completed', false);
+    
+    // إذا كان هناك مستخدم محدد، نجلب مهامه + المهام العامة
+    if (userId) {
+      query = query.or(`assigned_to.eq.${userId},assigned_to.is.null`);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.warn('Tasks table might be missing or empty', e);
+    return [];
   }
-  const { data } = await query;
-  return data || [];
 };
 
 export const toggleTaskCompletion = async (taskId: number, isCompleted: boolean): Promise<boolean> => {
@@ -75,17 +234,21 @@ export const toggleTaskCompletion = async (taskId: number, isCompleted: boolean)
   return !error;
 };
 
-// --- Inventory (Facility Tracker) ---
-
 export const fetchInventory = async (): Promise<InventoryItem[]> => {
-  const { data } = await supabase.from('inventory').select('*');
-  return data || [];
+  try {
+    const { data, error } = await supabase.from('inventory').select('*');
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    return [];
+  }
 };
 
-// --- Products (Store) ---
+// --- Products (Store Engine) ---
 
 export const getProducts = async (category?: string): Promise<ProductDB[]> => {
-  let query = supabase.from('products').select('*').eq('is_active', true);
+  // نقرأ من جدول store_products الجديد
+  let query = supabase.from('store_products').select('*'); 
   if (category) {
     query = query.eq('category', category);
   }
@@ -97,60 +260,119 @@ export const getProducts = async (category?: string): Promise<ProductDB[]> => {
   return data as ProductDB[];
 };
 
-// --- Orders ---
+// --- Orders Management ---
 
 export const fetchAllOrders = async (): Promise<any> => {
+  // الربط مع جدول customers لجلب بيانات العميل
   const { data, error } = await supabase
     .from('orders')
-    .select(`*, profiles:client_id(full_name, phone)`) // أزلنا email لأنه قد لا يكون موجوداً في profiles
+    .select(`*, customers:customer_id(full_name, phone)`)
     .order('created_at', { ascending: false });
 
   if (error) return { success: false, message: error.message };
 
   const orders = data.map((o: any) => ({
     id: o.id,
-    type: o.service_type,
+    type: o.service_type || o.order_type, // دعم المسميين
     status: o.status,
-    client: o.profiles?.full_name || 'Unknown',
-    phone: o.profiles?.phone,
+    client: o.customers?.full_name || 'Unknown',
+    phone: o.customers?.phone,
     date: new Date(o.created_at).toLocaleDateString(),
-    amount: o.amount ? `${o.amount} SAR` : 'Pending',
+    amount: o.total_amount ? `${o.total_amount} SAR` : 'Pending',
     details: o.details 
   }));
 
   return { success: true, orders };
 };
 
-// [تعديل هام] استخدام المعرف مباشرة لجلب الطلبات
-export const fetchClientOrders = async (userId: string): Promise<any> => {
+export const fetchClientOrders = async (clientId: string): Promise<any> => {
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .eq('client_id', userId)
+    .eq('customer_id', clientId)
     .order('created_at', { ascending: false });
 
   if (error) return { success: false };
 
   const orders = data.map((o: any) => ({
     id: o.id,
-    type: o.service_type,
+    type: o.service_type || o.order_type,
     status: o.status,
     date: new Date(o.created_at).toLocaleDateString(),
-    details: JSON.stringify(o.details)
+    details: o.details, // إرجاع التفاصيل كما هي (JSON)
+    drive_folder_url: o.drive_folder_url
   }));
 
   return { success: true, orders };
 };
 
-// --- Form Submissions ---
+// --- Files & Logs (Order Details) ---
 
-export const submitDesignRequest = async (payload: DesignRequestPayload): Promise<boolean> => {
+export const uploadOrderFile = async (folderName: string, file: File, orderId: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${folderName}/${fileName}`;
+
+    // رفع الملف للـ Storage
+    const { error: uploadError } = await supabase.storage
+      .from('orders_files')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    // الحصول على الرابط العام
+    const { data: { publicUrl } } = supabase.storage
+      .from('orders_files')
+      .getPublicUrl(filePath);
+
+    // تحديث بيانات الطلب لإضافة الملف
+    const { data: order } = await supabase.from('orders').select('details').eq('id', orderId).single();
+    const currentDetails = order?.details || {};
+    const currentFiles = currentDetails.files || [];
+    
+    await supabase.from('orders').update({
+      details: {
+        ...currentDetails,
+        files: [...currentFiles, { name: file.name, url: publicUrl, date: new Date().toISOString() }]
+      }
+    }).eq('id', orderId);
+
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, message: e.message };
+  }
+};
+
+export const addOrderNote = async (orderId: string, note: string, author: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const { data: order } = await supabase.from('orders').select('details').eq('id', orderId).single();
+    const currentDetails = order?.details || {};
+    const currentLogs = currentDetails.logs || [];
+
+    await supabase.from('orders').update({
+      details: {
+        ...currentDetails,
+        logs: [...currentLogs, { content: note, author, created_at: new Date().toISOString() }]
+      }
+    }).eq('id', orderId);
+
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, message: e.message };
+  }
+};
+
+// --- Form Submissions (Public) ---
+
+export const submitDesignRequest = async (payload: DesignRequestPayload, clientId?: string): Promise<boolean> => {
   try {
     const { error } = await supabase.from('orders').insert({
-      id: `DES-${Date.now()}`,
+      customer_id: clientId,
       service_type: 'Design',
       status: 'Pending',
-      details: payload
+      details: payload,
+      project_name: payload.unitType // تم التصحيح: استخدام unitType كاسم للمشروع
     });
     return !error;
   } catch (e) {
@@ -159,13 +381,14 @@ export const submitDesignRequest = async (payload: DesignRequestPayload): Promis
   }
 };
 
-export const submitFurnitureQuote = async (payload: FurnitureQuotePayload): Promise<boolean> => {
+export const submitFurnitureQuote = async (payload: FurnitureQuotePayload, clientId?: string): Promise<boolean> => {
   try {
     const { error } = await supabase.from('orders').insert({
-      id: `FUR-${Date.now()}`,
-      service_type: 'Furniture',
+      customer_id: clientId,
+      service_type: 'Furniture Quote',
       status: 'Pending',
-      details: payload
+      details: payload,
+      project_name: 'تأثيث فندقي'
     });
     return !error;
   } catch (e) {
@@ -173,13 +396,14 @@ export const submitFurnitureQuote = async (payload: FurnitureQuotePayload): Prom
   }
 };
 
-export const submitFeasibilityStudy = async (payload: FeasibilityPayload): Promise<boolean> => {
+export const submitFeasibilityStudy = async (payload: FeasibilityPayload, clientId?: string): Promise<boolean> => {
   try {
     const { error } = await supabase.from('orders').insert({
-      id: `FEA-${Date.now()}`,
-      service_type: 'Feasibility',
+      customer_id: clientId,
+      service_type: 'Feasibility Study',
       status: 'Pending',
-      details: payload
+      details: payload,
+      project_name: payload.projectType || 'دراسة جدوى' // تم التصحيح: استخدام projectType
     });
     return !error;
   } catch (e) {
@@ -187,14 +411,20 @@ export const submitFeasibilityStudy = async (payload: FeasibilityPayload): Promi
   }
 };
 
-// --- Deprecated / Mock Functions ---
-export const verifyClientOTP = async (email: string, otp: string, data?: any): Promise<{ success: boolean; user: { name: string; role: string; email: string; phone?: string }; message?: string }> => ({ success: true, user: { name: 'Client', role: 'CLIENT', email, phone: data?.phone }, message: '' }); 
-export const updateClientProfile = async (email: string, updates: any): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-export const deleteClientAccount = async (email: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-export const adminUpdateUserRole = async (email: string, role: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-export const adminDeleteUser = async (email: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-export const uploadOrderFile = async (folderUrl: string, file: File, orderId: string, notifyEmail?: string, uploaderName?: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-export const addOrderNote = async (orderId: string, note: string, author: string, notifyEmail?: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-export const fetchOrderDetails = async (folderUrl: string, orderId: string): Promise<{ success: boolean; data: { files: any[]; logs: any[] }; message?: string }> => ({ success: true, data: { files: [], logs: [] }, message: '' });
-export const deleteOrderFile = async (fileId: string, orderId: string, userName: string): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
-export const submitBooking = async (payload: BookingPayload): Promise<{ success: boolean; message?: string }> => ({ success: true, message: '' });
+export const submitBooking = async (payload: BookingPayload, clientId?: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const { error } = await supabase.from('appointments').insert({
+      // user_id: clientId,
+      appointment_date: `${payload.date}T${payload.time}:00`,
+      status: 'Scheduled',
+      notes: `Service: ${payload.service}, Client: ${payload.name}, Phone: ${payload.phone}` // تم التصحيح: استخدام payload.service
+    });
+    
+    if (error) throw error;
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, message: e.message };
+  }
+};
+// أضف هذا التصدير في apiService.ts لحل مشكلة StaffManagement
+export const adminDeleteUser = deleteClientAccount;

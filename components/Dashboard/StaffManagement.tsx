@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { User, UserRole } from '../../types';
-import { fetchAllUsers, adminUpdateUserRole, adminDeleteUser } from '../../services/apiService';
-import { Users, Shield, Trash2, Edit2, Loader2, Check } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
+import { 
+  fetchAllUsers, 
+  adminUpdateUserRole, 
+  adminDeleteUser, 
+  registerClient 
+} from '../../services/apiService';
+import { Users, Trash2, Shield, UserPlus, X, Check, Loader2, Search } from 'lucide-react';
 
 export const StaffManagement = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const { t, lang } = useLanguage();
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'staff' | 'clients'>('staff');
-  const [editingEmail, setEditingEmail] = useState<string | null>(null);
-  const [processing, setProcessing] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  
+  // حالة النموذج الجديد
+  const [newUser, setNewUser] = useState({ name: '', email: '', phone: '', password: '', role: 'staff' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -16,153 +24,172 @@ export const StaffManagement = () => {
 
   const loadUsers = async () => {
     setLoading(true);
-    const res = await fetchAllUsers();
-    if (res.success) {
-      setUsers(res.users);
+    const response = await fetchAllUsers();
+    if (response.success) {
+      setUsers(response.users);
     }
     setLoading(false);
   };
 
-  const handleRoleUpdate = async (email: string, newRole: string) => {
-    if (!window.confirm(`Change role for ${email} to ${newRole}?`)) return;
+  const handleRoleUpdate = async (userId: string, newRole: string) => {
+    // تحديث فوري في الواجهة (Optimistic UI)
+    setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
     
-    setProcessing(email);
-    const res = await adminUpdateUserRole(email, newRole);
-    setProcessing(null);
-    setEditingEmail(null);
+    // إرسال للخادم
+    await adminUpdateUserRole(userId, newRole);
+  };
 
-    if (res.success) {
-      setUsers(prev => prev.map(u => u.email === email ? { ...u, role: newRole as UserRole } : u));
-    } else {
-      alert("Failed to update role");
+  const handleDelete = async (userId: string) => {
+    if (window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذا المستخدم؟' : 'Are you sure?')) {
+      await adminDeleteUser(userId);
+      setUsers(users.filter(u => u.id !== userId));
     }
   };
 
-  const handleDeleteUser = async (email: string) => {
-    if (!window.confirm("Are you sure? This will delete the user permanently.")) return;
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     
-    setProcessing(email);
-    const res = await adminDeleteUser(email);
-    setProcessing(null);
-
-    if (res.success) {
-      setUsers(prev => prev.filter(u => u.email !== email));
+    // 1. تسجيل الحساب في Supabase Auth
+    const result = await registerClient(newUser.name, newUser.email, newUser.phone, newUser.password);
+    
+    if (result.success) {
+      // 2. تحديث الصلاحية مباشرة لأنه موظف
+      // ملاحظة: registerClient ينشئ الحساب كـ customer افتراضياً، لذا نحدثه
+      // نحتاج معرف المستخدم الجديد (User ID) من النتيجة
+      if (result.user?.id) {
+         // تحديث الصلاحية في جدول customers/profiles
+         await adminUpdateUserRole(result.user.id, newUser.role);
+      }
+      
+      alert(lang === 'ar' ? 'تم إضافة الموظف بنجاح' : 'Staff added successfully');
+      setShowAddModal(false);
+      setNewUser({ name: '', email: '', phone: '', password: '', role: 'staff' });
+      loadUsers(); // إعادة تحميل القائمة
     } else {
-      // Improved error alerting
-      alert("Failed to delete user: " + (res.message || "Unknown error"));
+      alert(lang === 'ar' ? 'خطأ: ' + result.message : 'Error: ' + result.message);
     }
+    setIsSubmitting(false);
   };
-
-  // Filter lists: Staff (Owner/Manager/Employee) vs Clients
-  const staffMembers = users.filter(u => 
-    u.role === UserRole.OWNER || u.role === UserRole.MANAGER || u.role === UserRole.EMPLOYEE
-  );
-  const clients = users.filter(u => !u.role || u.role === UserRole.CLIENT);
-
-  const displayedUsers = activeTab === 'staff' ? staffMembers : clients;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden min-h-[500px]">
-      <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+    <div className="space-y-6 animate-in fade-in">
+      <div className="flex justify-between items-center">
         <div>
-           <h2 className="text-xl font-bold text-ukra-navy flex items-center gap-2">
-             <Users className="w-6 h-6 text-ukra-gold" /> User Management
-           </h2>
-           <p className="text-sm text-gray-500 mt-1">Manage staff roles and client access</p>
+          <h2 className="text-2xl font-black text-[#1a2a3a]">{lang === 'ar' ? 'إدارة الفريق' : 'Staff Management'}</h2>
+          <p className="text-gray-400 text-sm">{lang === 'ar' ? 'إضافة وتعديل صلاحيات الموظفين' : 'Manage access and roles'}</p>
         </div>
-        
-        <div className="flex bg-white rounded-lg border p-1">
-          <button 
-            onClick={() => setActiveTab('staff')}
-            className={`px-4 py-2 rounded-md text-sm font-bold transition ${activeTab === 'staff' ? 'bg-ukra-navy text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-          >
-            Staff ({staffMembers.length})
-          </button>
-          <button 
-             onClick={() => setActiveTab('clients')}
-             className={`px-4 py-2 rounded-md text-sm font-bold transition ${activeTab === 'clients' ? 'bg-ukra-navy text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-          >
-            Clients ({clients.length})
-          </button>
-        </div>
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="bg-[#1a2a3a] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-[#c5a059] transition-all shadow-lg"
+        >
+          <UserPlus size={18} /> {lang === 'ar' ? 'إضافة موظف' : 'Add Staff'}
+        </button>
       </div>
 
-      <div className="p-6">
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="text-center py-20"><Loader2 className="w-8 h-8 animate-spin mx-auto text-ukra-gold" /></div>
+          <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto text-[#c5a059]" /></div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="text-left text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50">
-                  <th className="px-6 py-3">Name</th>
-                  <th className="px-6 py-3">Email</th>
-                  <th className="px-6 py-3">Phone</th>
-                  <th className="px-6 py-3">Role</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="p-6 text-start font-bold text-gray-500">{lang === 'ar' ? 'المستخدم' : 'User'}</th>
+                <th className="p-6 text-start font-bold text-gray-500">{lang === 'ar' ? 'رقم الجوال' : 'Phone'}</th>
+                <th className="p-6 text-start font-bold text-gray-500">{lang === 'ar' ? 'الصلاحية' : 'Role'}</th>
+                <th className="p-6 text-end font-bold text-gray-500">{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                  <td className="p-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#1a2a3a]/5 rounded-full flex items-center justify-center text-[#1a2a3a] font-bold">
+                        {user.name?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <div className="font-bold text-[#1a2a3a]">{user.name || 'Unknown'}</div>
+                        <div className="text-xs text-gray-400">{user.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-6 font-bold text-gray-600" dir="ltr">{user.phone}</td>
+                  <td className="p-6">
+                    <select 
+                      value={user.role}
+                      onChange={(e) => handleRoleUpdate(user.id, e.target.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border-none outline-none cursor-pointer transition-colors
+                        ${user.role === 'owner' ? 'bg-purple-100 text-purple-700' : 
+                          user.role === 'manager' ? 'bg-[#c5a059]/10 text-[#c5a059]' : 
+                          user.role === 'staff' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}
+                    >
+                      <option value="customer">Customer</option>
+                      <option value="staff">Staff</option>
+                      <option value="manager">Manager</option>
+                      <option value="owner">Owner</option>
+                    </select>
+                  </td>
+                  <td className="p-6 text-end">
+                    <button 
+                      onClick={() => handleDelete(user.id)}
+                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      title="Delete User"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {displayedUsers.map((user, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{user.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.phone || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingEmail === user.email ? (
-                         <select 
-                           className="text-sm border rounded p-1"
-                           defaultValue={user.role}
-                           onChange={(e) => handleRoleUpdate(user.email!, e.target.value)}
-                         >
-                           <option value="CLIENT">Client</option>
-                           <option value="EMPLOYEE">Employee</option>
-                           <option value="MANAGER">Manager</option>
-                           <option value="OWNER">Owner</option>
-                         </select>
-                      ) : (
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                          ${user.role === 'OWNER' ? 'bg-purple-100 text-purple-800' : 
-                            user.role === 'MANAGER' ? 'bg-indigo-100 text-indigo-800' : 
-                            user.role === 'EMPLOYEE' ? 'bg-blue-100 text-blue-800' :
-                            'bg-green-100 text-green-800'}`}>
-                          {user.role}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                       {processing === user.email ? (
-                         <Loader2 className="w-5 h-5 animate-spin ml-auto text-ukra-gold" />
-                       ) : (
-                         <div className="flex justify-end gap-3">
-                           <button 
-                             onClick={() => setEditingEmail(editingEmail === user.email ? null : user.email!)}
-                             className="text-gray-400 hover:text-ukra-navy"
-                             title="Edit Role"
-                           >
-                             <Edit2 className="w-4 h-4" />
-                           </button>
-                           <button 
-                             onClick={() => handleDeleteUser(user.email!)}
-                             className="text-gray-400 hover:text-red-600"
-                             title="Delete User"
-                           >
-                             <Trash2 className="w-4 h-4" />
-                           </button>
-                         </div>
-                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            
-            {displayedUsers.length === 0 && (
-              <div className="text-center py-10 text-gray-400">No users found in this category.</div>
-            )}
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
+
+      {/* Modal - إضافة موظف */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black">{lang === 'ar' ? 'بيانات الموظف الجديد' : 'New Staff Details'}</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={20} /></button>
+            </div>
+            
+            <form onSubmit={handleAddUser} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold mb-2 text-gray-600">{lang === 'ar' ? 'الاسم الكامل' : 'Full Name'}</label>
+                <input type="text" required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl font-bold" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-sm font-bold mb-2 text-gray-600">{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</label>
+                    <input type="email" required value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl font-bold" />
+                 </div>
+                 <div>
+                    <label className="block text-sm font-bold mb-2 text-gray-600">{lang === 'ar' ? 'رقم الجوال' : 'Phone'}</label>
+                    <input type="text" required value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl font-bold" />
+                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2 text-gray-600">{lang === 'ar' ? 'كلمة المرور' : 'Password'}</label>
+                <input type="password" required value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl font-bold" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2 text-gray-600">{lang === 'ar' ? 'الصلاحية' : 'Role'}</label>
+                <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl font-bold">
+                  <option value="staff">Staff (موظف مبيعات)</option>
+                  <option value="manager">Manager (مدير فرع)</option>
+                  <option value="owner">Owner (مالك)</option>
+                </select>
+              </div>
+
+              <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-[#1a2a3a] text-white rounded-xl font-bold hover:bg-[#c5a059] transition-all mt-4 flex justify-center">
+                 {isSubmitting ? <Loader2 className="animate-spin" /> : (lang === 'ar' ? 'حفظ البيانات' : 'Create Account')}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
