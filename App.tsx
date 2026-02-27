@@ -17,8 +17,7 @@ import { WoodCatalog } from './pages/WoodCatalog';
 import { BookAppointment } from './pages/BookAppointment';
 import { HotelAdvisor } from './pages/HotelAdvisor';
 import FurnitureStore from './pages/FurnitureStore';
-import {Checkout} from './pages/Checkout';
-
+import Checkout from './pages/Checkout';
 // حماية المسار: يسمح للموظفين (AuthContext) والعملاء (LocalStorage)
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { isAuthenticated: isStaff } = useAuth();
