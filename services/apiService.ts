@@ -91,7 +91,7 @@ export const requestUnifiedOTP = async (phone: string, email: string): Promise<b
     const code = Math.floor(1000 + Math.random() * 9000).toString(); 
     const expiresAt = new Date(Date.now() + 10 * 60000).toISOString();
 
-    // 2. حفظ الرمز في قاعدة البيانات (هذا هو الأهم لكي يعمل التحقق لاحقاً)
+    // 2. حفظ الرمز في قاعدة بيانات Supabase (لكي يعمل التحقق لاحقاً)
     const { error: dbError } = await supabase.from('otp_codes').insert({
       phone: formattedPhone || null,
       email: email || null,
@@ -100,29 +100,60 @@ export const requestUnifiedOTP = async (phone: string, email: string): Promise<b
     });
 
     if (dbError) {
-       console.error("Database Insert Error:", dbError);
-       return false;
+      console.error("Database Insert Error:", dbError);
+      return false;
     }
 
-    // 3. إرسال الواتساب (لا نجعله يوقف الكود إن فشل)
-    if (formattedPhone) {
-      const message = `*رمز تحقق UKRA:*\n👉 *${code}*\n\nيرجى عدم مشاركته مع أحد.`;
-      sendToGateway({ phone: formattedPhone, message }).catch(e => console.error("WhatsApp Error:", e));
-    }
+    // 3. تجهيز رسالة الواتساب
+    const message = `*رمز تحقق UKRA:*\n👉 *${code}*\n\nيرجى عدم مشاركته مع أحد.`;
 
-    // 4. إرسال الإيميل (مع تجاوز خطأ الـ 500 الخاص بحدود Supabase)
-    if (email) {
-      try {
-        const { error } = await supabase.auth.signInWithOtp({ email: email });
-        if (error) {
-           console.warn("تنبيه: لم يتم إرسال الإيميل بسبب قيود Supabase (الحد الأقصى 3 رسائل/ساعة):", error.message);
-        }
-      } catch (err) {
-        console.warn("Supabase Auth Error:", err);
-      }
-    }
+    // 4. تجهيز قالب الإيميل الاحترافي (مدمج فيه كود التحقق والشعار)
+    const emailSubject = "رمز التحقق الخاص بك من UKRA";
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+      <head>
+        <meta charset="UTF-8">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f5f7;">
+        <div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+          
+          <div style="background-color: #1a2a3a; padding: 40px 20px; text-align: center; border-bottom: 4px solid #c5a059;">
+            <img src="https://i.imgur.com/DVM92N4.png" alt="UKRA Logo" style="max-width: 160px; height: auto;" />
+          </div>
+          
+          <div style="padding: 50px 40px; text-align: center; color: #333333; direction: rtl;">
+            <h1 style="color: #1a2a3a; font-size: 26px; margin-bottom: 20px; font-weight: 900;">تسجيل الدخول الآمن</h1>
+            <p style="line-height: 1.8; margin-bottom: 10px; font-size: 16px; color: #555;">مرحباً بك في منصة <strong>UKRA</strong>،</p>
+            <p style="line-height: 1.8; margin-bottom: 30px; font-size: 16px; color: #555;">لقد طلبت رمز التحقق للدخول إلى حسابك. يرجى استخدام الرمز أدناه لإتمام العملية:</p>
+            
+            <div style="background-color: #f8f9fa; border: 2px dashed #c5a059; color: #1a2a3a; padding: 25px; font-size: 38px; font-weight: 900; letter-spacing: 12px; border-radius: 12px; margin: 0 auto; width: fit-content; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02);">
+              ${code}
+            </div>
+            
+            <p style="font-size: 13px; color: #888; margin-top: 40px; font-weight: bold;">صلاحية الرمز: 10 دقائق فقط.</p>
+            <p style="font-size: 13px; color: #e74c3c;">يرجى عدم مشاركة هذا الرمز مع أي شخص لضمان أمان حسابك.</p>
+          </div>
+          
+          <div style="background-color: #fbfbfb; padding: 25px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eeeeee;">
+            <p style="margin: 0; line-height: 1.6;">&copy; 2026 UKRA Engineering & Construction.<br>المدينة المنورة، المملكة العربية السعودية</p>
+            <p style="direction: ltr; font-family: monospace; margin-top: 10px; color: #ccc;">Access Type: OTP Verification via StackCP</p>
+          </div>
+          
+        </div>
+      </body>
+      </html>
+    `;
 
-    // ✅ طالما تم حفظ الرمز في قاعدة البيانات بنجاح، نعتبر العملية ناجحة ليتمكن العميل من إدخال الرمز
+    // 5. إرسال الطلب إلى سيرفر الواتساب/الإيميل الخاص بك
+    sendToGateway({ 
+        phone: formattedPhone, 
+        message: message,
+        email: email,
+        emailSubject: emailSubject,
+        emailHtml: emailHtml
+    });
+
     return true; 
   } catch (error) {
     console.error('Unified OTP Request Failed:', error);

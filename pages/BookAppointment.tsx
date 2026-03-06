@@ -67,8 +67,7 @@ export const BookAppointment = () => {
     if (!otpCode || otpCode.length < 4) return alert("الرجاء إدخال رمز صحيح");
     setLoading(true);
     
-    const verifyRes = await verifyUnifiedOTP(formData.email, otpCode);
-
+   const verifyRes = await verifyUnifiedOTP(formData.phone, otpCode);
     if (verifyRes.success) {
       // جـ) تأكيد الموعد المبدئي وتغيير حالته إلى (مؤكد)
       if (draftId) {
