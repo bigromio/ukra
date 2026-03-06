@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
-import { verifyClientOTP } from '../services/apiService'; // استدعاء الدالة الجديدة
+import { requestUnifiedOTP, verifyUnifiedOTP } from '../services/apiService'; 
 import { supabase } from '../lib/supabase';
-import { Phone, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
+import { Phone, Mail, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
 
 export const ClientAuth = () => {
   const { t, lang, dir } = useLanguage();
   const { refreshCart } = useCart();
   
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState(''); // ✅ إضافة حالة الإيميل
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
 
   // التحقق من الجلسة الحالية
   useEffect(() => {
@@ -23,40 +23,24 @@ export const ClientAuth = () => {
     }
   }, []);
 
-  // تنسيق رقم الهاتف
-  const formatPhoneNumber = (p: string) => {
-    let clean = p.replace(/\D/g, '');
-    if (clean.startsWith('05')) clean = '966' + clean.substring(1);
-    else if (clean.startsWith('5')) clean = '966' + clean;
-    return clean;
-  };
-
-  // إرسال الرمز (محاكاة + تخزين في القاعدة للأمان)
+// إرسال الرمز للجهتين معاً (النظام الموحد)
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 9) {
-      alert(lang === 'ar' ? 'رقم الجوال غير صحيح' : 'Invalid phone number');
+    if (phone.length < 9 || !email) {
+      alert(lang === 'ar' ? 'الرجاء إدخال رقم الجوال والبريد الإلكتروني' : 'Please enter valid phone and email');
       return;
     }
     setLoading(true);
 
-    // محاكاة إرسال OTP (في الإنتاج نربط بـ Unifonic/Twilio)
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(code);
-    
-    // تخزين الكود في جدول otp_codes للتحقق منه في الـ Backend
-    const finalPhone = formatPhoneNumber(phone);
-    await supabase.from('otp_codes').insert({
-      phone: finalPhone,
-      code: code,
-      expires_at: new Date(Date.now() + 10 * 60000).toISOString() // صالح لـ 10 دقائق
-    });
-
-    // عرض الكود للتجربة (يجب إزالته في الإنتاج)
-    alert(`رمز التحقق المؤقت: ${code}`);
+    // ✅ استدعاء الدالة الموحدة (بدون التخزين اليدوي هنا، الدالة تقوم بكل شيء)
+    const success = await requestUnifiedOTP(phone, email);
     
     setLoading(false);
-    setStep('otp');
+    if (success) {
+       setStep('otp');
+    } else {
+       alert(lang === 'ar' ? 'فشل إرسال الرمز، يرجى المحاولة لاحقاً.' : 'Failed to send OTP.');
+    }
   };
 
   // التحقق من الرمز والدخول
@@ -64,10 +48,8 @@ export const ClientAuth = () => {
     e.preventDefault();
     setLoading(true);
 
-    const finalPhone = formatPhoneNumber(phone);
-    
-    // استدعاء دالة التحقق المركزية من apiService
-    const response = await verifyClientOTP(finalPhone, otp);
+    // ✅ استدعاء دالة التحقق المركزية
+    const response = await verifyUnifiedOTP(phone, otp);
 
     if (response.success && response.user) {
       // تنظيف الجلسة القديمة
@@ -76,19 +58,16 @@ export const ClientAuth = () => {
       // حفظ بيانات الجلسة الجديدة
       localStorage.setItem('ukra_client_id', response.user.id);
       localStorage.setItem('ukra_client_phone', response.user.phone);
+      localStorage.setItem('ukra_client_name', response.user.name || 'Guest User');
       localStorage.setItem('isAuthenticated', 'true');
-      
-      // *** النقطة الأهم: حفظ الدور (Role) ***
       localStorage.setItem('userRole', response.user.role); 
 
-      // تحديث السلة
       await refreshCart();
 
-      // التوجيه للداشبورد
       window.location.hash = '/dashboard';
       window.location.reload();
     } else {
-      alert(lang === 'ar' ? 'رمز التحقق غير صحيح' : 'Invalid OTP');
+      alert(lang === 'ar' ? 'رمز التحقق غير صحيح أو منتهي الصلاحية' : 'Invalid or expired OTP');
     }
     
     setLoading(false);
@@ -108,8 +87,8 @@ export const ClientAuth = () => {
           </p>
         </div>
 
-        {step === 'phone' ? (
-          <form onSubmit={handleSendOtp} className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+{step === 'phone' ? (
+          <form onSubmit={handleSendOtp} className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
                 {lang === 'ar' ? 'رقم الجوال' : 'Phone Number'}
@@ -118,22 +97,42 @@ export const ClientAuth = () => {
                 <Phone className="absolute top-4 left-4 text-gray-400 w-5 h-5 rtl:right-4 rtl:left-auto" />
                 <input 
                   type="tel" 
+                  required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="05xxxxxxxx"
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#c5a059] font-bold text-lg rtl:pr-12 rtl:pl-4"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#c5a059] font-bold text-lg rtl:pr-12 rtl:pl-4 text-left"
                   dir="ltr"
                 />
               </div>
             </div>
+            
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                {lang === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}
+              </label>
+              <div className="relative">
+                <Mail className="absolute top-4 left-4 text-gray-400 w-5 h-5 rtl:right-4 rtl:left-auto" />
+                <input 
+                  type="email" 
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="example@mail.com"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#c5a059] font-bold text-lg rtl:pr-12 rtl:pl-4 text-left"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full py-4 bg-[#1a2a3a] text-white rounded-xl font-bold hover:bg-[#c5a059] transition-all flex items-center justify-center gap-2 shadow-lg"
+              className="w-full mt-2 py-4 bg-[#1a2a3a] text-white rounded-xl font-bold hover:bg-[#c5a059] transition-all flex items-center justify-center gap-2 shadow-lg"
             >
               {loading ? <Loader2 className="animate-spin" /> : (
                 <>
-                  {lang === 'ar' ? 'إرسال الرمز' : 'Send Code'} 
+                  {lang === 'ar' ? 'إرسال الرمز للواتساب والإيميل' : 'Send Code to WhatsApp & Email'} 
                   <ArrowRight className="w-5 h-5 rtl:rotate-180" />
                 </>
               )}
@@ -141,17 +140,22 @@ export const ClientAuth = () => {
           </form>
         ) : (
           <form onSubmit={handleVerify} className="space-y-6 animate-in fade-in slide-in-from-right-4">
+            <div className="bg-blue-50 p-3 rounded-xl text-blue-800 text-xs font-bold text-center">
+               {lang === 'ar' ? 'تم إرسال الرمز للواتساب والبريد الإلكتروني' : 'OTP sent to WhatsApp and Email'}
+            </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
                 {lang === 'ar' ? 'رمز التحقق المرسل' : 'Verification Code'}
               </label>
               <input 
                 type="text" 
+                required
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 placeholder="XXXX"
                 className="w-full py-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#c5a059] font-black text-2xl text-center tracking-widest"
                 maxLength={4}
+                dir="ltr"
               />
             </div>
             <button 
@@ -159,14 +163,14 @@ export const ClientAuth = () => {
               disabled={loading}
               className="w-full py-4 bg-[#c5a059] text-white rounded-xl font-bold hover:bg-[#b08d4a] transition-all flex items-center justify-center gap-2 shadow-lg"
             >
-              {loading ? <Loader2 className="animate-spin" /> : (lang === 'ar' ? 'دخول' : 'Verify & Login')}
+              {loading ? <Loader2 className="animate-spin" /> : (lang === 'ar' ? 'تحقق ودخول' : 'Verify & Login')}
             </button>
             <button 
               type="button"
               onClick={() => setStep('phone')}
               className="w-full text-center text-gray-400 text-sm font-bold hover:text-[#1a2a3a]"
             >
-              {lang === 'ar' ? 'تغيير الرقم' : 'Change Number'}
+              {lang === 'ar' ? 'تعديل البيانات' : 'Edit Details'}
             </button>
           </form>
         )}

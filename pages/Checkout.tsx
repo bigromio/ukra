@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { 
-  verifyClientOTP, 
-  createStoreOrder, 
-  requestClientOTP, 
+  verifyUnifiedOTP, 
+  requestUnifiedOTP,
+  createStoreOrder,
   uploadOrderPDF, 
   sendWhatsAppPDF,
   fetchActiveCountries, // ✅ جديد
@@ -30,6 +30,7 @@ const Checkout = () => {
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState(''); // ✅ إضافة حالة الإيميل
   const [otp, setOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -114,14 +115,15 @@ const Checkout = () => {
   };
 
   // ... (دوال OTP و requestClientOTP و verifyClientOTP تبقى كما هي دون تغيير) ...
-  const handleRequestOtp = async (e: React.FormEvent) => {
+const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 9) return alert('الرقم غير صحيح');
+    if (phone.length < 9 || !email) return alert('الرجاء إدخال رقم الجوال والبريد الإلكتروني');
     setLoading(true);
     setLoadingText('جاري إرسال الرمز...');
-    const success = await requestClientOTP(phone);
+    // ✅ استدعاء الدالة الموحدة
+    const success = await requestUnifiedOTP(phone, email);
     if (success) setShowOtpInput(true);
-    else alert('فشل الاتصال');
+    else alert('فشل الاتصال بخوادم الإرسال');
     setLoading(false);
   };
 
@@ -129,16 +131,16 @@ const Checkout = () => {
     e.preventDefault();
     setLoading(true);
     setLoadingText('جاري التحقق...');
-    const res = await verifyClientOTP(phone, otp);
+    // ✅ استدعاء دالة التحقق الموحدة
+    const res = await verifyUnifiedOTP(phone, otp);
     if (res.success && res.user) {
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('ukra_client_id', res.user.id);
       localStorage.setItem('ukra_client_phone', res.user.phone);
-      localStorage.setItem('ukra_client_name', res.user.name); // حفظ الاسم
+      localStorage.setItem('ukra_client_name', res.user.name);
       setUserId(res.user.id);
       setIsAuthenticated(true);
       
-      // ✅ جلب العنوان بعد تسجيل الدخول الجديد
       const profile = await getCustomerProfile(res.user.id);
       if (profile) {
          setAddress({
@@ -148,10 +150,9 @@ const Checkout = () => {
             notes: ''
          });
       }
-      
       setStep('shipping');
     } else {
-      alert('الرمز خاطئ');
+      alert('الرمز خاطئ أو منتهي الصلاحية');
     }
     setLoading(false);
   };
@@ -279,10 +280,13 @@ const Checkout = () => {
              </div>
              {!isAuthenticated ? (
                <div className="space-y-4 max-w-md">
-                 {!showOtpInput ? (
-                   <form onSubmit={handleRequestOtp} className="flex gap-4">
-                     <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="05xxxxxxxx" className="flex-1 p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-[#c5a059]" dir="ltr" />
-                     <button type="submit" disabled={loading} className="px-6 bg-[#1a2a3a] text-white rounded-xl font-bold">{loading ? <Loader2 className="animate-spin" /> : <ArrowRight className="rtl:rotate-180" />}</button>
+          {!showOtpInput ? (
+                   <form onSubmit={handleRequestOtp} className="space-y-4">
+                      <div className="flex gap-4">
+                        <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="رقم الجوال (05xxxxxxxx)" className="flex-1 p-4 bg-gray-50 rounded-xl font-bold outline-none border focus:border-[#c5a059]" dir="ltr" />
+                        <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="البريد الإلكتروني" className="flex-1 p-4 bg-gray-50 rounded-xl font-bold outline-none border focus:border-[#c5a059]" dir="ltr" />
+                      </div>
+                      <button type="submit" disabled={loading} className="w-full py-4 bg-[#1a2a3a] text-white rounded-xl font-bold">{loading ? <Loader2 className="animate-spin mx-auto" /> : 'إرسال رمز التحقق (للواتساب والإيميل)'}</button>
                    </form>
                  ) : (
                    <form onSubmit={handleVerifyOtp} className="space-y-4 animate-in fade-in">

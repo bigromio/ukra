@@ -78,62 +78,108 @@ export const sendWhatsAppPDF = async (phone: string, pdfUrl: string, caption: st
   });
 };
 
-export const requestClientOTP = async (phone: string): Promise<boolean> => {
+// ==========================================
+// --- Unified OTP Functions (النظام الموحد) ---
+// ==========================================
+
+export const requestUnifiedOTP = async (phone: string, email: string): Promise<boolean> => {
   try {
-    let formattedPhone = phone.replace(/\D/g, '');
+    let formattedPhone = phone ? phone.replace(/\D/g, '') : '';
     if (formattedPhone.startsWith('05')) formattedPhone = '966' + formattedPhone.substring(1);
-    
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
 
-    await supabase.from('otp_codes').insert({
-      phone: formattedPhone,
+    // 1. توليد رمز التحقق (4 أرقام)
+    const code = Math.floor(1000 + Math.random() * 9000).toString(); 
+    const expiresAt = new Date(Date.now() + 10 * 60000).toISOString();
+
+    // 2. حفظ الرمز في قاعدة البيانات (هذا هو الأهم لكي يعمل التحقق لاحقاً)
+    const { error: dbError } = await supabase.from('otp_codes').insert({
+      phone: formattedPhone || null,
+      email: email || null,
       code: code,
-      expires_at: new Date(Date.now() + 10 * 60000).toISOString()
+      expires_at: expiresAt
     });
 
-    const message = `*رمز توثيق UKRA:*\n👉 *${code}*\n\nيرجى عدم مشاركته مع أحد.`;
-    
-    return await sendToGateway({
-      phone: formattedPhone,
-      message: message
-    });
+    if (dbError) {
+       console.error("Database Insert Error:", dbError);
+       return false;
+    }
 
+    // 3. إرسال الواتساب (لا نجعله يوقف الكود إن فشل)
+    if (formattedPhone) {
+      const message = `*رمز تحقق UKRA:*\n👉 *${code}*\n\nيرجى عدم مشاركته مع أحد.`;
+      sendToGateway({ phone: formattedPhone, message }).catch(e => console.error("WhatsApp Error:", e));
+    }
+
+    // 4. إرسال الإيميل (مع تجاوز خطأ الـ 500 الخاص بحدود Supabase)
+    if (email) {
+      try {
+        const { error } = await supabase.auth.signInWithOtp({ email: email });
+        if (error) {
+           console.warn("تنبيه: لم يتم إرسال الإيميل بسبب قيود Supabase (الحد الأقصى 3 رسائل/ساعة):", error.message);
+        }
+      } catch (err) {
+        console.warn("Supabase Auth Error:", err);
+      }
+    }
+
+    // ✅ طالما تم حفظ الرمز في قاعدة البيانات بنجاح، نعتبر العملية ناجحة ليتمكن العميل من إدخال الرمز
+    return true; 
   } catch (error) {
-    console.error('OTP Request Failed:', error);
+    console.error('Unified OTP Request Failed:', error);
     return false;
   }
 };
 
-export const verifyClientOTP = async (phone: string, otp: string): Promise<any> => {
+export const verifyUnifiedOTP = async (identifier: string, code: string): Promise<any> => {
   try {
-    let formattedPhone = phone.replace(/\D/g, '');
-    if (formattedPhone.startsWith('05')) formattedPhone = '966' + formattedPhone.substring(1);
+    // تنظيف المعرف إذا كان المستخدم أدخل رقم الجوال بدلاً من الإيميل
+    let cleanIdentifier = identifier.replace(/\D/g, '');
+    if (cleanIdentifier.startsWith('05')) cleanIdentifier = '966' + cleanIdentifier.substring(1);
+    if (!cleanIdentifier || cleanIdentifier.length < 5) cleanIdentifier = identifier;
 
+    // البحث عن الرمز الذي يطابق الكود والـ (إيميل أو جوال)
     const { data, error } = await supabase
       .from('otp_codes')
       .select('*')
-      .eq('phone', formattedPhone)
-      .eq('code', otp)
+      .eq('code', code)
+      .or(`phone.eq.${cleanIdentifier},email.eq.${identifier}`)
       .gt('expires_at', new Date().toISOString())
       .single();
 
-    if (error || !data) return { success: false, message: 'Invalid OTP' };
+    if (error || !data) return { success: false, message: 'الرمز غير صحيح أو منتهي الصلاحية' };
 
+    // مسح الرمز من قاعدة البيانات بعد نجاح التحقق
     await supabase.from('otp_codes').delete().eq('id', data.id);
 
-    let { data: profile } = await supabase.from('customers').select('*').eq('phone', formattedPhone).maybeSingle();
+    // التحقق من وجود المستخدم أو إنشائه كضيف
+    let { data: profile } = await supabase
+      .from('customers')
+      .select('*')
+      .or(`phone.eq.${data.phone},email.eq.${data.email}`)
+      .maybeSingle();
     
     if (!profile) {
       const { data: newProfile } = await supabase
         .from('customers')
-        .insert([{ phone: formattedPhone, full_name: 'Guest User', role: 'customer' }])
+        .insert([{ 
+           phone: data.phone, 
+           email: data.email, 
+           full_name: 'Guest User', 
+           role: 'customer' 
+        }])
         .select().single();
       profile = newProfile;
     }
 
     return { 
       success: true, 
-      user: { id: profile.id, name: profile.full_name, role: profile.role || 'customer', phone: profile.phone }
+      user: { 
+         id: profile.id, 
+         name: profile.full_name, 
+         role: profile.role || 'customer', 
+         phone: profile.phone,
+         email: profile.email
+      }
     };
   } catch (error: any) {
     return { success: false, message: error.message };
@@ -368,16 +414,51 @@ export const submitFeasibilityStudy = async (payload: FeasibilityPayload, client
   } catch (e) { return false; }
 };
 
-export const submitBooking = async (payload: BookingPayload, clientId?: string): Promise<{ success: boolean; message?: string }> => {
+export const createLeadAndDraftBooking = async (payload: BookingPayload): Promise<{ success: boolean; appointmentId?: string; message?: string }> => {
   try {
-    const { error } = await supabase.from('appointments').insert({
+    // 1. فتح ملف للعميل فوراً (Lead Capture) حتى لو لم يكمل التحقق
+    let formattedPhone = payload.phone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('05')) formattedPhone = '966' + formattedPhone.substring(1);
+
+    let { data: profile } = await supabase.from('customers').select('*').or(`phone.eq.${formattedPhone},email.eq.${payload.email}`).maybeSingle();
+
+    if (!profile) {
+      const { data: newProfile } = await supabase.from('customers').insert([{
+        full_name: payload.name,
+        phone: formattedPhone,
+        email: payload.email,
+        role: 'lead' // تسجيله كعميل محتمل
+      }]).select().single();
+      profile = newProfile;
+    }
+
+    // 2. تسجيل الموعد كـ (مسودة / بانتظار التحقق) - Abandoned Cart
+    const { data: appointment, error } = await supabase.from('appointments').insert({
       appointment_date: `${payload.date}T${payload.time}:00`,
-      status: 'Scheduled',
-      notes: `Service: ${payload.service}, Client: ${payload.name}, Phone: ${payload.phone}`
-    });
+      status: 'Pending OTP', // حالة جديدة تعني أنه حجز مبدئي لم يكتمل
+      notes: `Service: ${payload.service}, Client: ${payload.name}, Phone: ${payload.phone}\n⚠️ (بانتظار التحقق من الرمز - لم يكتمل)`
+    }).select().single();
+
     if (error) throw error;
-    return { success: true };
-  } catch (e: any) { return { success: false, message: e.message }; }
+    
+    return { success: true, appointmentId: appointment?.id };
+  } catch (e: any) { 
+    return { success: false, message: e.message }; 
+  }
+};
+
+export const confirmDraftBooking = async (appointmentId: string, service: string, name: string, phone: string): Promise<boolean> => {
+  try {
+    // 3. تأكيد الموعد إذا قام بإدخال الرمز بنجاح
+    const { error } = await supabase.from('appointments').update({
+      status: 'Scheduled', // تحويله لموعد مؤكد
+      notes: `Service: ${service}, Client: ${name}, Phone: ${phone}\n✅ (تم التحقق من الهوية وتأكيد الموعد)`
+    }).eq('id', appointmentId);
+    
+    return !error;
+  } catch (e) {
+    return false;
+  }
 };
 
 // ==========================================
