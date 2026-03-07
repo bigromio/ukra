@@ -5,7 +5,8 @@ import {
   DesignRequestPayload, 
   BookingPayload, 
   ProductDB, 
-  Task, 
+  Task,
+  TaskNote, // 👈 أضفنا هذه الكلمة هنا
   InventoryItem 
 } from '../types';
 
@@ -76,6 +77,29 @@ export const sendWhatsAppPDF = async (phone: string, pdfUrl: string, caption: st
     mediaUrl: pdfUrl,
     isFile: true
   });
+};
+
+export const fetchBookedSlots = async (date: string): Promise<string[]> => {
+  try {
+    // جلب المواعيد المحجوزة في هذا اليوم (المؤكدة أو التي بانتظار الـ OTP)
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('appointment_date')
+      .gte('appointment_date', `${date}T00:00:00`)
+      .lte('appointment_date', `${date}T23:59:59`)
+      .neq('status', 'Cancelled');
+
+    if (error) throw error;
+
+    // استخراج الأوقات المحجوزة بصيغة "HH:mm"
+    return data.map(app => {
+      // نأخذ الجزء الخاص بالوقت من السلسلة النصية (مثال: 2025-10-10T14:00:00 -> 14:00)
+      return app.appointment_date.split('T')[1].substring(0, 5);
+    });
+  } catch (e) {
+    console.error("Error fetching booked slots:", e);
+    return [];
+  }
 };
 
 // ==========================================
@@ -161,45 +185,49 @@ export const requestUnifiedOTP = async (phone: string, email: string): Promise<b
   }
 };
 
+// 2. التحقق من الرمز (محدثة لتجنب خطأ 406 و 409)
 export const verifyUnifiedOTP = async (identifier: string, code: string): Promise<any> => {
   try {
-    // تنظيف المعرف إذا كان المستخدم أدخل رقم الجوال بدلاً من الإيميل
     let cleanIdentifier = identifier.replace(/\D/g, '');
     if (cleanIdentifier.startsWith('05')) cleanIdentifier = '966' + cleanIdentifier.substring(1);
     if (!cleanIdentifier || cleanIdentifier.length < 5) cleanIdentifier = identifier;
 
-    // البحث عن الرمز الذي يطابق الكود والـ (إيميل أو جوال)
-    const { data, error } = await supabase
+    // استخدام limit(1) بدلاً من single
+    const { data: codes, error: codeErr } = await supabase
       .from('otp_codes')
       .select('*')
       .eq('code', code)
       .or(`phone.eq.${cleanIdentifier},email.eq.${identifier}`)
       .gt('expires_at', new Date().toISOString())
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (error || !data) return { success: false, message: 'الرمز غير صحيح أو منتهي الصلاحية' };
+    const otpData = codes?.[0];
 
-    // مسح الرمز من قاعدة البيانات بعد نجاح التحقق
-    await supabase.from('otp_codes').delete().eq('id', data.id);
+    if (codeErr || !otpData) return { success: false, message: 'الرمز غير صحيح أو منتهي الصلاحية' };
 
-    // التحقق من وجود المستخدم أو إنشائه كضيف
-    let { data: profile } = await supabase
+    await supabase.from('otp_codes').delete().eq('id', otpData.id);
+
+    // استخدام limit(1)
+    let { data: profiles } = await supabase
       .from('customers')
       .select('*')
-      .or(`phone.eq.${data.phone},email.eq.${data.email}`)
-      .maybeSingle();
+      .or(`phone.eq.${otpData.phone},email.eq.${otpData.email}`)
+      .limit(1);
+    
+    let profile = profiles?.[0];
     
     if (!profile) {
-      const { data: newProfile } = await supabase
+      const { data: newProfiles } = await supabase
         .from('customers')
         .insert([{ 
-           phone: data.phone, 
-           email: data.email, 
+           phone: otpData.phone, 
+           email: otpData.email, 
            full_name: 'Guest User', 
            role: 'customer' 
         }])
-        .select().single();
-      profile = newProfile;
+        .select().limit(1);
+      profile = newProfiles?.[0];
     }
 
     return { 
@@ -291,6 +319,15 @@ export const adminUpdateUserRole = async (userId: string, role: string) => {
   await supabase.from('customers').update({ role }).eq('id', userId);
 };
 
+export const updateUserTabs = async (userId: string, tabs: string[]) => {
+  try {
+    const { error } = await supabase.from('customers').update({ allowed_tabs: tabs }).eq('id', userId);
+    return !error;
+  } catch (e) {
+    return false;
+  }
+};
+
 export const adminDeleteUser = async (userId: string) => {
   await supabase.from('customers').update({ is_active: false }).eq('id', userId);
 };
@@ -311,7 +348,6 @@ export const createStoreOrder = async (orderData: any): Promise<{ success: boole
     // التحقق من وجود معرف العميل
     if (!orderData.clientId) {
       console.error('Create Order Error: Missing Client ID');
-      // لا نوقف العملية هنا، ربما الجدول يقبل null، لكن نسجل التحذير
     }
 
     const { error, data } = await supabase
@@ -320,11 +356,7 @@ export const createStoreOrder = async (orderData: any): Promise<{ success: boole
         customer_id: orderData.clientId,
         service_type: 'Store Order',
         status: 'New',
-        
-        // --- الإضافة الهامة لحل مشكلة 400 ---
-        project_name: 'طلب متجر إلكتروني', // إضافة اسم للمشروع لأنه غالباً إلزامي في قاعدتك
-        // -----------------------------------
-
+        project_name: 'طلب متجر إلكتروني', 
         total_amount: orderData.total,
         details: {
           items: orderData.items,
@@ -337,7 +369,7 @@ export const createStoreOrder = async (orderData: any): Promise<{ success: boole
       .single();
 
     if (error) {
-      console.error('Supabase Error Details:', error); // طباعة تفاصيل الخطأ في الكونسول
+      console.error('Supabase Error Details:', error); 
       throw error;
     }
 
@@ -445,29 +477,30 @@ export const submitFeasibilityStudy = async (payload: FeasibilityPayload, client
   } catch (e) { return false; }
 };
 
+// 1. إنشاء الحجز المبدئي (محدثة لتجنب خطأ 409)
 export const createLeadAndDraftBooking = async (payload: BookingPayload): Promise<{ success: boolean; appointmentId?: string; message?: string }> => {
   try {
-    // 1. فتح ملف للعميل فوراً (Lead Capture) حتى لو لم يكمل التحقق
     let formattedPhone = payload.phone.replace(/\D/g, '');
     if (formattedPhone.startsWith('05')) formattedPhone = '966' + formattedPhone.substring(1);
 
-    let { data: profile } = await supabase.from('customers').select('*').or(`phone.eq.${formattedPhone},email.eq.${payload.email}`).maybeSingle();
+    // استخدام limit(1) بدلاً من maybeSingle لتجنب أخطاء 406
+    let { data: profiles } = await supabase.from('customers').select('*').or(`phone.eq.${formattedPhone},email.eq.${payload.email}`).limit(1);
+    let profile = profiles?.[0];
 
     if (!profile) {
-      const { data: newProfile } = await supabase.from('customers').insert([{
+      const { data: newProfiles } = await supabase.from('customers').insert([{
         full_name: payload.name,
         phone: formattedPhone,
         email: payload.email,
-        role: 'lead' // تسجيله كعميل محتمل
-      }]).select().single();
-      profile = newProfile;
+        role: 'lead'
+      }]).select().limit(1);
+      profile = newProfiles?.[0];
     }
 
-    // 2. تسجيل الموعد كـ (مسودة / بانتظار التحقق) - Abandoned Cart
     const { data: appointment, error } = await supabase.from('appointments').insert({
       appointment_date: `${payload.date}T${payload.time}:00`,
-      status: 'Pending OTP', // حالة جديدة تعني أنه حجز مبدئي لم يكتمل
-      notes: `Service: ${payload.service}, Client: ${payload.name}, Phone: ${payload.phone}\n⚠️ (بانتظار التحقق من الرمز - لم يكتمل)`
+      status: 'Pending OTP',
+      notes: `Service: ${payload.service}, Client: ${payload.name}, Phone: ${payload.phone}\n⚠️ (بانتظار التحقق من الرمز)`
     }).select().single();
 
     if (error) throw error;
@@ -478,27 +511,241 @@ export const createLeadAndDraftBooking = async (payload: BookingPayload): Promis
   }
 };
 
-export const confirmDraftBooking = async (appointmentId: string, service: string, name: string, phone: string): Promise<boolean> => {
+// 3. تأكيد الموعد وإرسال التذكرة (تحديث كامل)
+export const confirmDraftBooking = async (
+  appointmentId: string, 
+  service: string, 
+  name: string, 
+  phone: string,
+  email: string,
+  date: string,
+  time: string
+): Promise<boolean> => {
   try {
-    // 3. تأكيد الموعد إذا قام بإدخال الرمز بنجاح
     const { error } = await supabase.from('appointments').update({
-      status: 'Scheduled', // تحويله لموعد مؤكد
+      status: 'Scheduled',
       notes: `Service: ${service}, Client: ${name}, Phone: ${phone}\n✅ (تم التحقق من الهوية وتأكيد الموعد)`
     }).eq('id', appointmentId);
     
+    if (error) throw error;
+
+    let formattedPhone = phone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('05')) formattedPhone = '966' + formattedPhone.substring(1);
+
+    const serviceName = service === 'Design' ? 'استشارة تصميم فندقي' : 'مبيعات وتوريد';
+    const ticketNumber = String(appointmentId).padStart(5, '0').substring(0, 6).toUpperCase();
+
+    // رسالة الواتساب
+    const whatsappMessage = `*تذكرة موعد مؤكد - UKRA* 🏢\n\nأهلاً بك أستاذ/ة *${name}*،\nيسعدنا إخبارك بأنه تم تأكيد موعدك بنجاح.\n\n🎟️ *رقم التذكرة:* #${ticketNumber}\n📝 *الخدمة:* ${serviceName}\n📅 *التاريخ:* ${date}\n⏰ *الوقت:* ${time}\n\n📍 *الموقع:* المدينة المنورة\nنسعد بزيارتك!`;
+
+    // إيميل التذكرة
+    const emailSubject = "تأكيد موعدك مع UKRA - تذكرة الدخول";
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f5f7;">
+        <div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+          <div style="background-color: #1a2a3a; padding: 30px; text-align: center; border-bottom: 4px solid #c5a059;">
+            <img src="https://i.imgur.com/DVM92N4.png" alt="UKRA" style="max-width: 140px;" />
+          </div>
+          <div style="padding: 40px; color: #333; direction: rtl;">
+            <h2 style="color: #1a2a3a; text-align: center; margin-bottom: 30px; font-weight: 900;">تذكرة موعد مؤكد</h2>
+            <p style="font-size: 16px;">أهلاً بك <strong>${name}</strong>،</p>
+            <p style="font-size: 16px;">يسعدنا إخبارك بأنه تم تأكيد حجز موعدك بنجاح. يرجى إبراز هذه التذكرة عند وصولك:</p>
+            
+            <div style="background-color: #f8f9fa; border: 1px dashed #c5a059; padding: 25px; border-radius: 12px; margin: 30px 0;">
+              <div style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                <span style="color: #888; font-size: 14px;">رقم التذكرة:</span><br/>
+                <strong style="color: #1a2a3a; font-size: 20px;">#${ticketNumber}</strong>
+              </div>
+              <div style="margin-bottom: 15px;">
+                <span style="color: #888; font-size: 14px;">نوع الخدمة:</span><br/>
+                <strong style="font-size: 16px;">${serviceName}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <div>
+                  <span style="color: #888; font-size: 14px;">التاريخ:</span><br/>
+                  <strong style="font-size: 16px; color: #c5a059;">${date}</strong>
+                </div>
+                <div>
+                  <span style="color: #888; font-size: 14px;">الوقت:</span><br/>
+                  <strong style="font-size: 16px; color: #c5a059;">${time}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await sendToGateway({ 
+        phone: formattedPhone, 
+        message: whatsappMessage,
+        email: email,
+        emailSubject: emailSubject,
+        emailHtml: emailHtml
+    });
+
+    return true;
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
+};
+// ==========================================
+// 6. Data Fetching (Store & Dashboard)
+// ==========================================
+
+// هذه الدالة ستقوم مستقبلاً بجلب أوقات العمل والإجازات من لوحة تحكم الإدارة (جدول settings)
+export const fetchBusinessSettings = async () => {
+  try {
+    // محاكاة لما سيعود من قاعدة البيانات لاحقاً
+    return {
+      success: true,
+      settings: {
+        workStartHour: 9, // يبدأ العمل 9 صباحاً
+        workEndHour: 17,  // ينتهي 5 مساءً (بنظام 24 ساعة)
+        holidays: ['2026-04-10', '2026-04-11'], // تواريخ الإجازات والأعياد (تغلق بالكامل)
+        workDaysText: 'من الأحد إلى الخميس، 9:00 ص - 5:00 م' // النص الذي يظهر للعميل
+      }
+    };
+  } catch (error) {
+    return { success: false, settings: null };
+  }
+};
+
+export const assignNewTask = async (taskData: Partial<Task>, employeePhone: string, employeeEmail: string): Promise<boolean> => {
+  try {
+    // 1. حفظ المهمة في قاعدة البيانات
+    const { error } = await supabase.from('tasks').insert({
+      title: taskData.title,
+      description: taskData.description,
+      assigned_to: employeePhone,
+      assigned_to_name: taskData.assigned_to_name,
+      assigned_by: taskData.assigned_by,
+      due_date: taskData.due_date,
+      status: 'Pending'
+    });
+
+    if (error) throw error;
+
+    // 2. تجهيز الواتساب
+    let formattedPhone = employeePhone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('05')) formattedPhone = '966' + formattedPhone.substring(1);
+
+    const deadline = new Date(taskData.due_date!).toLocaleString('ar-SA');
+    const whatsappMessage = `*تكليف بمهمة جديدة 📋*\n\nمرحباً *${taskData.assigned_to_name}*،\nتم إسناد مهمة جديدة إليك من قبل *${taskData.assigned_by}*:\n\n📌 *المهمة:* ${taskData.title}\n📝 *التفاصيل:* ${taskData.description}\n⏳ *موعد التسليم:* ${deadline}\n\nيرجى الدخول للوحة التحكم للبدء في التنفيذ. بالتوفيق!`;
+
+    // 3. تجهيز الإيميل الاحترافي
+    const emailSubject = "تكليف بمهمة جديدة - UKRA";
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f5f7;">
+        <div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+          <div style="background-color: #1a2a3a; padding: 30px; text-align: center; border-bottom: 4px solid #c5a059;">
+            <img src="https://i.imgur.com/DVM92N4.png" alt="UKRA" style="max-width: 140px;" />
+          </div>
+          <div style="padding: 40px; color: #333; direction: rtl;">
+            <h2 style="color: #1a2a3a; text-align: center; margin-bottom: 30px; font-weight: 900;">تكليف بمهمة جديدة 📋</h2>
+            <p style="font-size: 16px;">مرحباً <strong>${taskData.assigned_to_name}</strong>،</p>
+            <p style="font-size: 16px;">تم إسناد مهمة جديدة إليك من قبل <strong>${taskData.assigned_by}</strong>. يرجى الاطلاع على التفاصيل أدناه:</p>
+            
+            <div style="background-color: #f8f9fa; border: 1px dashed #c5a059; padding: 25px; border-radius: 12px; margin: 30px 0;">
+              <div style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                <span style="color: #888; font-size: 14px;">عنوان المهمة:</span><br/>
+                <strong style="color: #1a2a3a; font-size: 20px;">${taskData.title}</strong>
+              </div>
+              <div style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                <span style="color: #888; font-size: 14px;">التفاصيل:</span><br/>
+                <span style="font-size: 16px;">${taskData.description || 'لا توجد تفاصيل إضافية'}</span>
+              </div>
+              <div>
+                <span style="color: #888; font-size: 14px;">موعد التسليم:</span><br/>
+                <strong style="font-size: 16px; color: #e74c3c;">${deadline}</strong>
+              </div>
+            </div>
+            
+            <p style="text-align: center; margin-top: 30px;">
+              <a href="https://ukra.sa" style="background-color: #c5a059; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">الذهاب للوحة التحكم</a>
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // 4. الإرسال للبوابة الموحدة (واتس + إيميل)
+    sendToGateway({ 
+      phone: formattedPhone, 
+      message: whatsappMessage,
+      email: employeeEmail,
+      emailSubject: emailSubject,
+      emailHtml: emailHtml
+    });
+
+    return true;
+  } catch (e) {
+    console.error('Error assigning task:', e);
+    return false;
+  }
+};
+
+export const updateTaskProgress = async (taskId: string, newStatus: 'Pending' | 'In Progress' | 'Completed'): Promise<boolean> => {
+  try {
+    const updateData: any = { status: newStatus };
+    
+    // تسجيل أوقات البدء والانتهاء تلقائياً
+    if (newStatus === 'In Progress') {
+      updateData.started_at = new Date().toISOString();
+    } else if (newStatus === 'Completed') {
+      updateData.completed_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase.from('tasks').update(updateData).eq('id', taskId);
     return !error;
   } catch (e) {
     return false;
   }
 };
 
-// ==========================================
-// 6. Data Fetching (Store & Dashboard)
-// ==========================================
+export const addTaskNote = async (taskId: string, content: string, author: string, currentNotes: TaskNote[] = []): Promise<boolean> => {
+  try {
+    const newNote: TaskNote = {
+      id: Date.now().toString(),
+      content,
+      author,
+      created_at: new Date().toISOString()
+    };
+    const updatedNotes = [...currentNotes, newNote];
+    
+    const { error } = await supabase.from('tasks').update({ notes: updatedNotes }).eq('id', taskId);
+    return !error;
+  } catch (e) {
+    return false;
+  }
+};
 
-export const fetchDailyTasks = async (userId?: string): Promise<Task[]> => {
-  let query = supabase.from('tasks').select('*').eq('is_completed', false);
-  if (userId) query = query.or(`assigned_to.eq.${userId},assigned_to.is.null`);
+
+export const deleteTask = async (taskId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Error deleting task:', e);
+    return false;
+  }
+};
+
+// تحديث دالة الجلب لتشمل كل البيانات الجديدة وترتيبها بالأحدث
+export const fetchDailyTasks = async (userPhone?: string): Promise<Task[]> => {
+  let query = supabase.from('tasks').select('*').order('created_at', { ascending: false });
+  // إذا تم تمرير هاتف الموظف، يجلب مهامه فقط. وإلا يجلب كل المهام (للمدير)
+  if (userPhone) {
+    query = query.eq('assigned_to', userPhone);
+  }
   const { data } = await query;
   return data || [];
 };

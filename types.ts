@@ -45,7 +45,6 @@ export interface ProductDB {
 // --- Hotel Advisor & Unit Types (UPDATED) ---
 
 // 1. القائمة الشاملة لأنواع الوحدات (غرف + مرافق)
-// --- تحديث قائمة الأنواع لتشمل جميع المرافق الجديدة ---
 export type UnitType = 
   // وحدات سكنية
   | 'Single' | 'Double' | 'Twin' | 'Triple'| 'Quad' | 'King' | 'Suite' | 'Studio' | 'Apartment' | 'Villa' | 'Accessible'
@@ -55,6 +54,7 @@ export type UnitType =
   | 'Restaurant' | 'CoffeeShop' | 'Kitchen' | 'Lounge'
   // ترفيه وخدمات
   | 'Gym' | 'Pool' | 'Spa' | 'KidsArea' | 'Laundry' | 'Barber';
+
 // 2. تصنيف المرافق (للمنطق البرمجي)
 export type FacilityCategory = 'Pool' | 'Gym' | 'Restaurant' | 'Meeting' | 'Prayer' | 'Kids' | 'General';
 
@@ -75,6 +75,7 @@ export interface UnitDefinition {
   // للتوافق مع الأكواد القديمة
   unitType?: UnitType;
 }
+
 // 4. معايير الوزارة (Criteria)
 export interface HotelCriteriaDB {
   id: number;
@@ -132,16 +133,31 @@ export interface Order {
   phone?: string;
   date: string;
   amount: string;
-  details?: any;
+  details?: Record<string, any>; // تم استبدال any هنا ليكون آمن برمجياً
+}
+
+// --- Tasks Management Types ---
+export interface TaskNote {
+  id: string;
+  content: string;
+  author: string;
+  created_at: string;
 }
 
 export interface Task {
-  id: number;
+  id: string;
   title: string;
-  assigned_to: string;
-  status: 'Pending' | 'In Progress' | 'Done';
+  description?: string;
+  assigned_to: string; // هاتف الموظف أو الـ ID
+  assigned_to_name?: string;
+  assigned_by?: string;
+  status: 'Pending' | 'In Progress' | 'Completed';
   due_date: string;
-  is_completed: boolean;
+  started_at?: string;
+  completed_at?: string;
+  notes?: TaskNote[];
+  attachments?: string[];
+  created_at?: string;
 }
 
 export interface InventoryItem {
@@ -181,12 +197,14 @@ export interface BookingPayload {
   time: string;
   name: string;
   phone: string;
+  email: string;       // تمت الإضافة هنا لحل الخطأ
   notes?: string;
+  timestamp?: string; // تمت الإضافة لكي يتوافق مع الدالة
 }
-// أضف هذه الأنواع في ملف types/index.ts أو في بداية advisorService.ts
 
 export type AdvisorPhase = 'CONSTRUCTION' | 'REGULATORY' | 'FURNISHING';
 export type QuestionAnswerType = 'YES_NO' | 'NUMBER' | 'UNIT_SELECTION' | 'CHECKLIST';
+
 export interface AdvisorQuestion {
   id: string;
   phase: AdvisorPhase;
@@ -197,9 +215,10 @@ export interface AdvisorQuestion {
   answerType: QuestionAnswerType;
   relatedUnitType?: string;
 }
+
 export interface UserAnswer {
   questionId: string;
-  value: any;
+  value: string | number | boolean | string[] | Record<string, any>; // تم استبدال any بنوع آمن
   isCompliant: boolean;
 }
 

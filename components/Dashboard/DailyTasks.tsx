@@ -1,89 +1,243 @@
-
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { fetchDailyTasks, updateTaskProgress, addTaskNote, deleteTask } from '../../services/apiService';
 import { Task } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { CheckCircle, Circle, AlertCircle } from 'lucide-react';
+import { Clock, PlayCircle, CheckCircle, MessageSquare, AlertCircle, X, Calendar, User, Send, Trash2 } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export const DailyTasks = () => {
   const { user } = useAuth();
+  const { dir } = useLanguage();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [noteContent, setNoteContent] = useState('');
+  const [noteLoading, setNoteLoading] = useState(false);
+
+  // التحقق من صلاحية الأونر
+  const isOwner = user?.role?.toLowerCase() === 'owner';
 
   useEffect(() => {
-    fetchTasks();
+    loadTasks();
   }, []);
 
-  const fetchTasks = async () => {
-    // In a real scenario, filter by user.id if not admin
-    const { data } = await supabase.from('tasks').select('*').order('is_critical', { ascending: false });
-    if (data) setTasks(data as Task[]);
+  const loadTasks = async () => {
+    setLoading(true);
+    const phoneToFetch = (user?.role === 'OWNER' || user?.role === 'MANAGER' || user?.role === 'owner' || user?.role === 'manager') ? undefined : user?.phone;
+    const data = await fetchDailyTasks(phoneToFetch);
+    setTasks(data);
     setLoading(false);
   };
 
-  const toggleTask = async (task: Task) => {
-    // Optimistic Update
-    const newStatus = !task.is_completed;
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_completed: newStatus } : t));
+  const handleStatusChange = async (taskId: string, newStatus: 'Pending' | 'In Progress' | 'Completed') => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    if (selectedTask && selectedTask.id === taskId) {
+      setSelectedTask({ ...selectedTask, status: newStatus });
+    }
+    await updateTaskProgress(taskId, newStatus);
+    loadTasks();
+  };
 
-    const { error } = await supabase.from('tasks').update({ is_completed: newStatus }).eq('id', task.id);
-    
-    if (newStatus && !error && user) {
-        // Increment Points logic would happen here or via DB Trigger
-        // For UI feedback:
-        console.log(`Earned ${task.points_value} points!`);
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTask || !noteContent.trim()) return;
+
+    setNoteLoading(true);
+    const success = await addTaskNote(selectedTask.id, noteContent, user?.name || 'مستخدم');
+    if (success) {
+      setNoteContent('');
+      loadTasks();
+      const updatedNotes = [...(selectedTask.notes || []), { id: Date.now().toString(), content: noteContent, author: user?.name || 'مستخدم', created_at: new Date().toISOString() }];
+      setSelectedTask({ ...selectedTask, notes: updatedNotes });
+    }
+    setNoteLoading(false);
+  };
+
+  // دالة مسح المهمة (مخصصة للأونر)
+  const handleDeleteTask = async (taskId: string) => {
+    if (window.confirm('هل أنت متأكد من مسح هذه المهمة نهائياً من النظام؟ لا يمكن التراجع عن هذا الإجراء.')) {
+      const success = await deleteTask(taskId);
+      if (success) {
+        setSelectedTask(null);
+        loadTasks();
+      } else {
+        alert('حدث خطأ أثناء مسح المهمة.');
+      }
     }
   };
 
-  if (loading) return <div className="p-4">Loading tasks...</div>;
+  const pendingTasks = tasks.filter(t => t.status === 'Pending');
+  const inProgressTasks = tasks.filter(t => t.status === 'In Progress');
+  const completedTasks = tasks.filter(t => t.status === 'Completed');
+
+  const isOverdue = (dateString: string) => new Date(dateString) < new Date();
+
+  const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
+    const overdue = task.status !== 'Completed' && isOverdue(task.due_date);
+    return (
+      <div 
+        onClick={() => setSelectedTask(task)}
+        className={`bg-white p-4 rounded-xl border-l-4 shadow-sm cursor-pointer hover:shadow-md transition-all
+          ${task.status === 'Pending' ? 'border-gray-300' : task.status === 'In Progress' ? 'border-blue-500' : 'border-green-500'}
+          ${overdue ? 'border-r-4 border-r-red-500 bg-red-50' : ''}
+        `}
+      >
+        <div className="flex justify-between items-start mb-2">
+          <h4 className="font-bold text-ukra-navy text-sm line-clamp-2">{task.title}</h4>
+          {overdue && <AlertCircle className="w-4 h-4 text-red-500 animate-pulse shrink-0" />}
+        </div>
+        <div className="text-xs text-gray-500 space-y-1">
+          <div className="flex items-center gap-1"><User size={12}/> {task.assigned_to_name || task.assigned_to}</div>
+          <div className={`flex items-center gap-1 font-num ${overdue ? 'text-red-600 font-bold' : ''}`}>
+            <Calendar size={12}/> {new Date(task.due_date).toLocaleDateString('ar-SA')}
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          {(task.notes?.length || 0) > 0 && (
+            <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded-full flex items-center gap-1">
+              <MessageSquare size={10} /> {task.notes?.length}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) return <div className="p-10 text-center"><div className="animate-spin w-8 h-8 border-4 border-ukra-gold border-t-transparent rounded-full mx-auto"></div></div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-num font-bold text-ukra-navy text-lg">
-           <span className="text-ukra-gold border-b-2 border-ukra-gold pb-1">المهام اليومية</span>
-        </h3>
-        <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">
-           {tasks.filter(t => t.is_completed).length} / {tasks.length}
-        </span>
+    <div className="font-cairo h-full flex flex-col" dir={dir}>
+      <div className="mb-6 flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-ukra-navy flex items-center gap-2">
+          <CheckCircle className="text-ukra-gold" /> لوحة متابعة المهام (Kanban)
+        </h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tasks.map(task => (
-          <div 
-            key={task.id}
-            className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md flex items-start gap-3
-              ${task.is_completed ? 'bg-gray-50 border-gray-200 opacity-70' : 'bg-white border-gray-100'}
-              ${task.is_critical && !task.is_completed ? 'border-r-4 border-r-red-500' : 'border-r-4 border-r-ukra-navy'}
-            `}
-            onClick={() => toggleTask(task)}
-          >
-            <div className={`mt-1 ${task.is_completed ? 'text-green-500' : 'text-gray-300'}`}>
-               {task.is_completed ? <CheckCircle className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <div className="bg-gray-100 rounded-2xl p-4 min-h-[500px]">
+          <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2 border-b border-gray-200 pb-2">
+            <Clock className="text-gray-500" size={18} /> قيد الانتظار ({pendingTasks.length})
+          </h3>
+          <div className="space-y-3">
+            {pendingTasks.map(task => <TaskCard key={task.id} task={task} />)}
+          </div>
+        </div>
+
+        <div className="bg-blue-50 rounded-2xl p-4 min-h-[500px]">
+          <h3 className="font-bold text-blue-800 mb-4 flex items-center gap-2 border-b border-blue-200 pb-2">
+            <PlayCircle className="text-blue-500" size={18} /> قيد التنفيذ ({inProgressTasks.length})
+          </h3>
+          <div className="space-y-3">
+            {inProgressTasks.map(task => <TaskCard key={task.id} task={task} />)}
+          </div>
+        </div>
+
+        <div className="bg-green-50 rounded-2xl p-4 min-h-[500px]">
+          <h3 className="font-bold text-green-800 mb-4 flex items-center gap-2 border-b border-green-200 pb-2">
+            <CheckCircle className="text-green-500" size={18} /> مكتملة ({completedTasks.length})
+          </h3>
+          <div className="space-y-3">
+            {completedTasks.map(task => <TaskCard key={task.id} task={task} />)}
+          </div>
+        </div>
+      </div>
+
+      {selectedTask && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95">
+            <div className="bg-ukra-navy p-4 flex justify-between items-center text-white">
+              <h3 className="font-bold truncate pr-4">{selectedTask.title}</h3>
+              <div className="flex items-center gap-3 shrink-0">
+                {/* 🔴 زر المسح يظهر للأونر فقط 🔴 */}
+                {isOwner && (
+                  <button 
+                    onClick={() => handleDeleteTask(selectedTask.id)} 
+                    title="حذف المهمة نهائياً"
+                    className="bg-red-500/20 hover:bg-red-500 text-white p-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-bold"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <button onClick={() => setSelectedTask(null)} className="hover:text-red-400 transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
             </div>
             
-            <div className="flex-1">
-               <div className="flex justify-between items-start">
-                  <h4 className={`font-bold text-sm ${task.is_completed ? 'line-through text-gray-400' : 'text-ukra-navy'}`}>
-                    {task.title}
-                  </h4>
-                  {task.is_critical && !task.is_completed && <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />}
-               </div>
-               <div className="mt-2 flex items-center gap-2">
-                  <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-num">
-                    +{task.points_value} نقطة
-                  </span>
-               </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <span className="text-gray-500 block text-xs">مُسندة إلى:</span>
+                  <strong className="text-ukra-navy">{selectedTask.assigned_to_name || selectedTask.assigned_to}</strong>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <span className="text-gray-500 block text-xs">موعد التسليم:</span>
+                  <strong className="text-red-600 font-num">{new Date(selectedTask.due_date).toLocaleString('ar-SA')}</strong>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg col-span-2">
+                  <span className="text-gray-500 block text-xs mb-1">تفاصيل المهمة:</span>
+                  <p className="text-gray-800 whitespace-pre-wrap">{selectedTask.description || 'لا توجد تفاصيل إضافية.'}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 mb-8 border-b pb-6">
+                {selectedTask.status === 'Pending' && (
+                  <button onClick={() => handleStatusChange(selectedTask.id, 'In Progress')} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition-colors flex items-center justify-center gap-2">
+                    <PlayCircle size={18}/> البدء في التنفيذ
+                  </button>
+                )}
+                {selectedTask.status === 'In Progress' && (
+                  <button onClick={() => handleStatusChange(selectedTask.id, 'Completed')} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold transition-colors flex items-center justify-center gap-2">
+                    <CheckCircle size={18}/> إنهاء المهمة
+                  </button>
+                )}
+                {selectedTask.status === 'Completed' && (
+                  <div className="flex-1 bg-green-100 text-green-800 py-2 rounded-lg font-bold text-center border border-green-200">
+                    تم إنجاز هذه المهمة بنجاح ✅
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h4 className="font-bold text-ukra-navy mb-4 flex items-center gap-2">
+                  <MessageSquare size={18} /> الملاحظات وسجل العمل
+                </h4>
+                <div className="space-y-3 mb-4">
+                  {(!selectedTask.notes || selectedTask.notes.length === 0) ? (
+                    <p className="text-sm text-gray-400 text-center py-4">لا توجد ملاحظات مسجلة بعد.</p>
+                  ) : (
+                    selectedTask.notes.map((note) => (
+                      <div key={note.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div className="flex justify-between items-center mb-1">
+                          <strong className="text-xs text-ukra-gold">{note.author}</strong>
+                          <span className="text-[10px] text-gray-400 font-num">{new Date(note.created_at).toLocaleString('ar-SA')}</span>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.content}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form onSubmit={handleAddNote} className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="اكتب تحديثاً أو ملاحظة عن سير العمل..." 
+                    className="flex-1 border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-ukra-gold text-sm"
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                  />
+                  <button disabled={noteLoading || !noteContent.trim()} type="submit" className="bg-ukra-navy text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors disabled:opacity-50">
+                    {noteLoading ? <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div> : <Send size={18} />}
+                  </button>
+                </form>
+              </div>
+
             </div>
           </div>
-        ))}
-      </div>
-      
-      {tasks.length === 0 && (
-        <div className="text-center py-10 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
-           No tasks assigned for today.
         </div>
       )}
+
     </div>
   );
 };
