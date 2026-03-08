@@ -842,3 +842,98 @@ export const validateCoupon = async (code: string) => {
 
   return { valid: true, coupon: data };
 };
+
+// --- دوال حذف المهام المتقدمة للأونر ---
+export const deleteAllTasks = async (): Promise<boolean> => {
+  try {
+    // مسح جميع المهام بدون استثناء
+    const { error } = await supabase.from('tasks').delete().not('id', 'is', null);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Error deleting all tasks:', e);
+    return false;
+  }
+};
+
+// --- دوال إدارة المتجر (متوافقة مع جدول store_products) ---
+export const fetchAdminProducts = async () => {
+  const { data, error } = await supabase.from('store_products').select('*').order('created_at', { ascending: false });
+  if (error) { console.error(error); return []; }
+  return data || [];
+};
+
+export const addAdminProduct = async (product: any) => {
+  const { error } = await supabase.from('store_products').insert([product]);
+  if (error) console.error(error);
+  return !error;
+};
+
+// تم تأكيد الحذف بشكل أقوى
+export const deleteAdminProduct = async (id: string | number) => {
+  const { error } = await supabase.from('store_products').delete().eq('id', id);
+  if (error) console.error('Delete Error:', error);
+  return !error;
+};
+
+// 🔴 دالة التعديل الجديدة التي طلبناها 🔴
+export const updateAdminProduct = async (id: string | number, updates: any) => {
+  const { error } = await supabase.from('store_products').update(updates).eq('id', id);
+  if (error) console.error('Update Error:', error);
+  return !error;
+};
+
+export const bulkAddProducts = async (products: any[]): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('store_products').insert(products);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Error in bulk insert:', e);
+    return false;
+  }
+};
+
+// ==========================================
+// --- دوال إدارة المصنع وتذاكر العمل ---
+// ==========================================
+
+export const fetchWorkTickets = async () => {
+  const { data, error } = await supabase.from('work_tickets').select('*').order('work_date', { ascending: false });
+  if (error) { console.error(error); return []; }
+  return data || [];
+};
+
+// دالة لإضافة عدة أيام عمل دفعة واحدة
+export const bulkCreateWorkTickets = async (tickets: any[]) => {
+  const { error } = await supabase.from('work_tickets').insert(tickets);
+  if (error) console.error('Error creating tickets:', error);
+  return !error;
+};
+
+export const updateTicketAttendance = async (id: string, updates: any) => {
+  const { error } = await supabase.from('work_tickets').update(updates).eq('id', id);
+  return !error;
+};
+
+// 🔴 الدالة الذكية: تبحث عن تذكرة العامل لليوم الحالي فقط بناءً على رقم جواله
+export const getTodayTicketByPhone = async (phone: string) => {
+  // جلب تاريخ اليوم بصيغة YYYY-MM-DD
+  const today = new Date().toLocaleDateString('en-CA'); 
+  const { data, error } = await supabase
+    .from('work_tickets')
+    .select('*')
+    .eq('phone', phone)
+    .eq('work_date', today)
+    .single();
+    
+  if (error) return null;
+  return data;
+};
+
+// دالة إلغاء تذكرة العمل
+export const deleteWorkTicket = async (id: string) => {
+  const { error } = await supabase.from('work_tickets').delete().eq('id', id);
+  if (error) console.error('Delete Ticket Error:', error);
+  return !error;
+};

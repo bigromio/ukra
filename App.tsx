@@ -18,6 +18,7 @@ import { BookAppointment } from './pages/BookAppointment';
 import { HotelAdvisor } from './pages/HotelAdvisor';
 import FurnitureStore from './pages/FurnitureStore';
 import Checkout from './pages/Checkout';
+import { WorkerAttendance } from './pages/WorkerAttendance';
 // حماية المسار: يسمح للموظفين (AuthContext) والعملاء (LocalStorage)
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { isAuthenticated: isStaff } = useAuth();
@@ -61,6 +62,7 @@ const AppContent = () => {
         <Route path="/client-orders" element={<Navigate to="/dashboard" replace />} />
         <Route path="/my-requests" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/attendance/:phone" element={<WorkerAttendance />} />
       </Routes>
     </>
   );

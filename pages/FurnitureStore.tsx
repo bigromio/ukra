@@ -229,7 +229,7 @@ export default function FurnitureStore() {
                   </p>
                   <div className="flex items-end justify-between border-t border-gray-50 pt-4 mt-auto">
                     <div>
-                      <span className="text-xs text-gray-400 block mb-0.5">السعر التقديري</span>
+                      <span className="text-xs text-gray-400 block mb-0.5">السعر</span>
                       <span className="text-xl font-bold text-[#1a2a3a] font-num">
                         {product.price > 0 ? product.price.toLocaleString() : 'عند الطلب'} 
                         {product.price > 0 && <span className="text-xs font-normal text-gray-400 mr-1">ر.س</span>}

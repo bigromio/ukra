@@ -5,10 +5,12 @@ import { fetchUserRole } from '../services/apiService';
 import { 
   LayoutDashboard, LogOut, FileText, Settings, Users, Bell, 
   Palette, FileSpreadsheet, TrendingUp, Send, User, ShieldCheck, ShoppingBag, 
-  Globe, Home, Menu, X
+  Globe, Home, Menu, X, Factory, Briefcase, ShoppingCart
 } from 'lucide-react';
 
 // استيراد المكونات الفرعية
+import { FactoryManagement } from '../components/Dashboard/FactoryManagement';
+import { EcommerceManagement } from '../components/Dashboard/EcommerceManagement';
 import { DailyTasks } from '../components/Dashboard/DailyTasks';
 import { StaffManagement } from '../components/Dashboard/StaffManagement';
 import { AnalyticsCharts } from '../components/Dashboard/AnalyticsCharts';
@@ -46,6 +48,12 @@ export const Dashboard = () => {
   const isStaff = currentRole === 'staff';
   const isCustomer = currentRole === 'customer';
 
+  // --- نظام الصلاحيات الذكي لإظهار وإخفاء التبويبات ---
+  // نقرأ التبويبات المسموحة من حساب المستخدم، وإذا لم تكن موجودة نعطيه الأساسيات فقط
+  const allowedTabs = user?.allowed_tabs || ['overview', 'orders'];
+  // دالة مساعدة: الأونر يرى كل شيء دائماً، والموظف يرى المسموح له فقط
+  const canSee = (tabId: string) => isOwner || allowedTabs.includes(tabId);
+
   const [activeTab, setActiveTab] = useState(() => {
     if (isCustomer) return 'my-orders';
     return 'overview';
@@ -57,7 +65,6 @@ export const Dashboard = () => {
     window.location.href = '/';
   };
 
-  // إغلاق القائمة تلقائياً عند اختيار تبويب في الجوال
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
     if (window.innerWidth < 768) {
@@ -65,10 +72,15 @@ export const Dashboard = () => {
     }
   };
 
+  // --- مكونات مؤقتة للتبويبات الجديدة حتى نبرمجها ---
+  const EcommercePlaceholder = () => <div className="p-10 text-center mt-20"><ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h2 className="text-2xl font-bold text-gray-400">🛒 إدارة المتجر والمنتجات (قيد البرمجة...)</h2></div>;
+  const FactoryPlaceholder = () => <div className="p-10 text-center mt-20"><Factory className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h2 className="text-2xl font-bold text-gray-400">🏭 إدارة المصنع والعمالة (قيد البرمجة...)</h2></div>;
+  const SettingsPlaceholder = () => <div className="p-10 text-center mt-20"><Settings className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h2 className="text-2xl font-bold text-gray-400">⚙️ إعدادات النظام والإشعارات (قيد البرمجة...)</h2></div>;
+
   return (
     <div className="flex h-screen bg-[#F1F5F9] overflow-hidden font-tajawal" dir={dir}>
       
-      {/* --- Mobile Overlay (خلفية معتمة للجوال) --- */}
+      {/* --- Mobile Overlay --- */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
@@ -76,7 +88,7 @@ export const Dashboard = () => {
         />
       )}
 
-      {/* --- Sidebar (القائمة الجانبية) --- */}
+      {/* --- Sidebar --- */}
       <aside 
         className={`
           fixed inset-y-0 z-50 w-72 bg-[#1a2a3a] text-white flex flex-col h-full
@@ -85,16 +97,10 @@ export const Dashboard = () => {
           md:relative md:translate-x-0
         `}
       >
-        {/* Sidebar Header (ثابت) */}
         <div className="p-6 border-b border-white/5 flex flex-col items-center shrink-0 relative">
-          {/* زر إغلاق للجوال فقط */}
-          <button 
-            onClick={() => setSidebarOpen(false)} 
-            className="absolute top-4 right-4 md:hidden text-gray-400 hover:text-white rtl:right-auto rtl:left-4"
-          >
+          <button onClick={() => setSidebarOpen(false)} className="absolute top-4 right-4 md:hidden text-gray-400 hover:text-white rtl:right-auto rtl:left-4">
             <X size={24} />
           </button>
-
           <ShieldCheck className="text-[#c5a059] w-10 h-10 mb-3" />
           <h2 className="text-2xl font-black tracking-widest uppercase">UKRA <span className="text-[#c5a059]">Core</span></h2>
           <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-[0.2em] bg-white/5 px-2 py-1 rounded">
@@ -102,36 +108,38 @@ export const Dashboard = () => {
           </p>
         </div>
 
-        {/* Sidebar Nav (قابل للسكرول) */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
           
-          {/* زر العودة للموقع */}
           <a href="/" className="flex items-center w-full px-5 py-3.5 mb-6 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-[#c5a059] hover:border-[#c5a059] transition-all gap-3 shadow-lg group">
             <Globe size={20} className="group-hover:animate-spin-slow" /> 
             <span className="font-bold text-sm">{lang === 'ar' ? 'تصفح الموقع' : 'Go to Website'}</span>
           </a>
 
-          {/* تبويبات الإدارة والموظفين */}
+          {/* تبويبات الإدارة والموظفين (تظهر حسب الصلاحيات المحددة من الأونر) */}
           {!isCustomer && (
             <>
-              <div className="px-4 text-[10px] text-gray-500 font-bold uppercase mb-2 mt-4">{t('dash_overview')}</div>
-              <NavItem icon={<LayoutDashboard />} label={t('dash_overview')} active={activeTab === 'overview'} onClick={() => handleTabClick('overview')} />
-              <NavItem icon={<FileText />} label={t('dash_orders')} active={activeTab === 'orders'} onClick={() => handleTabClick('orders')} />
-              <NavItem icon={<FileSpreadsheet />} label="BOQ & Pricing" active={activeTab === 'boq'} onClick={() => handleTabClick('boq')} />
+              <div className="px-4 text-[10px] text-gray-500 font-bold uppercase mb-2 mt-4">إدارة العمليات</div>
+              
+              {canSee('overview') && <NavItem icon={<LayoutDashboard />} label="المهام اليومية" active={activeTab === 'overview'} onClick={() => handleTabClick('overview')} />}
+              {canSee('ecommerce') && <NavItem icon={<ShoppingBag />} label="إدارة المتجر" active={activeTab === 'ecommerce'} onClick={() => handleTabClick('ecommerce')} />}
+              {canSee('orders') && <NavItem icon={<ShoppingCart />} label="الطلبات والمواعيد" active={activeTab === 'orders'} onClick={() => handleTabClick('orders')} />}
+              {canSee('projects') && <NavItem icon={<Briefcase />} label="المشاريع والمقاولات" active={activeTab === 'projects'} onClick={() => handleTabClick('projects')} />}
+              {canSee('factory') && <NavItem icon={<Factory />} label="إدارة المصنع" active={activeTab === 'factory'} onClick={() => handleTabClick('factory')} />}
+
+              {/* تبويبات الإدارة العليا والضبط */}
+              {(canSee('analytics') || canSee('staff') || canSee('marketing') || canSee('settings')) && (
+                <>
+                  <div className="pt-6 pb-2 px-4 text-[10px] text-gray-500 font-bold uppercase">الإدارة والضبط</div>
+                  {canSee('analytics') && <NavItem icon={<TrendingUp />} label="التحليلات الشاملة" active={activeTab === 'analytics'} onClick={() => handleTabClick('analytics')} />}
+                  {canSee('staff') && <NavItem icon={<Users />} label="إدارة الموظفين" active={activeTab === 'staff'} onClick={() => handleTabClick('staff')} />}
+                  {canSee('marketing') && <NavItem icon={<Send />} label="حملات التسويق" active={activeTab === 'marketing'} onClick={() => handleTabClick('marketing')} />}
+                  {canSee('settings') && <NavItem icon={<Settings />} label="إعدادات النظام" active={activeTab === 'settings'} onClick={() => handleTabClick('settings')} />}
+                </>
+              )}
             </>
           )}
 
-          {/* تبويبات الإدارة العليا */}
-          {(isOwner || isManager) && (
-            <>
-              <div className="pt-6 pb-2 px-4 text-[10px] text-gray-500 font-bold uppercase">{lang === 'ar' ? 'الإدارة العليا' : 'Administration'}</div>
-              <NavItem icon={<TrendingUp />} label={lang === 'ar' ? 'التحليلات المالية' : 'Financial Analytics'} active={activeTab === 'analytics'} onClick={() => handleTabClick('analytics')} />
-              <NavItem icon={<Users />} label={t('dash_staff')} active={activeTab === 'staff'} onClick={() => handleTabClick('staff')} />
-              <NavItem icon={<Send />} label={lang === 'ar' ? 'التسويق (واتساب)' : 'Marketing Hub'} active={activeTab === 'marketing'} onClick={() => handleTabClick('marketing')} />
-            </>
-          )}
-
-          {/* تبويبات العميل */}
+          {/* تبويبات العميل (ثابتة) */}
           {isCustomer && (
             <>
                <NavItem icon={<ShoppingBag />} label={lang === 'ar' ? 'طلباتي' : 'My Orders'} active={activeTab === 'my-orders'} onClick={() => handleTabClick('my-orders')} />
@@ -139,11 +147,9 @@ export const Dashboard = () => {
             </>
           )}
 
-          {/* مساحة فارغة في الأسفل لضمان عدم تغطية آخر عنصر */}
           <div className="h-10"></div>
         </nav>
 
-        {/* Sidebar Footer (ثابت) */}
         <div className="p-4 border-t border-white/5 shrink-0 bg-[#1a2a3a]">
           <button onClick={handleLogout} className="flex items-center justify-center w-full px-4 py-3 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all font-bold text-sm">
             <LogOut className="w-5 h-5 ltr:mr-2 rtl:ml-2" /> {t('dash_logout')}
@@ -153,31 +159,19 @@ export const Dashboard = () => {
 
       {/* --- Main Content Area --- */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
-        
-        {/* Header */}
         <header className="bg-white border-b border-gray-100 px-4 md:px-8 py-4 flex justify-between items-center z-30 shrink-0">
            <div className="flex items-center gap-4">
-             {/* زر فتح القائمة للجوال */}
-             <button 
-               className="md:hidden p-2 text-[#1a2a3a] bg-gray-100 rounded-lg hover:bg-gray-200"
-               onClick={() => setSidebarOpen(true)}
-             >
+             <button className="md:hidden p-2 text-[#1a2a3a] bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setSidebarOpen(true)}>
                <Menu size={24} />
              </button>
-             
              <h1 className="text-lg md:text-xl font-black text-[#1a2a3a] uppercase truncate max-w-[150px] md:max-w-none">
                {activeTab.replace('-', ' ')}
              </h1>
            </div>
 
-           {/* Quick Actions */}
            <div className="flex items-center gap-2 md:gap-4">
-              <a href="#/store" className="p-2 text-gray-400 hover:text-[#c5a059] transition-colors rounded-full hover:bg-gray-50">
-                <ShoppingBag size={20} />
-              </a>
-              <a href="/" className="p-2 text-gray-400 hover:text-[#c5a059] transition-colors rounded-full hover:bg-gray-50">
-                <Home size={20} />
-              </a>
+              <a href="#/store" className="p-2 text-gray-400 hover:text-[#c5a059] transition-colors rounded-full hover:bg-gray-50"><ShoppingBag size={20} /></a>
+              <a href="/" className="p-2 text-gray-400 hover:text-[#c5a059] transition-colors rounded-full hover:bg-gray-50"><Home size={20} /></a>
               <div className="h-6 w-px bg-gray-200 mx-1 md:mx-2"></div>
               
               <div className="flex items-center gap-2">
@@ -187,7 +181,6 @@ export const Dashboard = () => {
                       {currentRole}
                     </span>
                  </div>
-                 {/* صورة افتراضية للمستخدم */}
                  <div className="w-8 h-8 md:w-10 md:h-10 bg-[#1a2a3a] rounded-full flex items-center justify-center text-white font-bold text-sm">
                    {user?.name?.charAt(0) || 'U'}
                  </div>
@@ -195,18 +188,20 @@ export const Dashboard = () => {
            </div>
         </header>
 
-        {/* Dynamic Content (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[#F1F5F9]">
           
-          {/* محتوى الموظفين والإدارة */}
+          {/* محتوى الإدارة والموظفين (يتم العرض حسب المسموح) */}
           {!isCustomer && (
             <>
               {activeTab === 'overview' && <DailyTasks filterUserId={isStaff ? user?.id : undefined} />}
-              {activeTab === 'staff' && (isOwner || isManager) && <StaffManagement />}
-              {activeTab === 'marketing' && (isOwner || isManager) && <MarketingHub />}
-              {activeTab === 'analytics' && (isOwner || isManager) && <AnalyticsCharts />}
-              {activeTab === 'boq' && <BOQBuilder />}
+              {activeTab === 'ecommerce' && <EcommerceManagement />}
               {activeTab === 'orders' && <OrdersManagement />}
+              {activeTab === 'projects' && <BOQBuilder />}
+              {activeTab === 'factory' && <FactoryManagement />}
+              {activeTab === 'analytics' && <AnalyticsCharts />}
+              {activeTab === 'marketing' && <MarketingHub />}
+              {activeTab === 'staff' && <StaffManagement />}
+              {activeTab === 'settings' && <SettingsPlaceholder />}
             </>
           )}
 
@@ -224,7 +219,6 @@ export const Dashboard = () => {
   );
 };
 
-// Helper UI Component for Nav Items
 const NavItem = ({ icon, label, active, onClick }: any) => (
   <button 
     onClick={onClick} 

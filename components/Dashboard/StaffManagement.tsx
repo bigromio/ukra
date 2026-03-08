@@ -3,15 +3,17 @@ import { fetchAllUsers, adminUpdateUserRole, adminDeleteUser, assignNewTask, reg
 import { Shield, Trash2, UserPlus, ClipboardList, X, Loader2, CheckSquare, Square, Settings2 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
-// قائمة التبويبات المتوفرة في النظام لبرمجتها في الصلاحيات
+// 🔴 تم تحديث قائمة التبويبات لتطابق الهيكل النهائي للوحة تحكم UKRA 🔴
 const SYSTEM_TABS = [
-  { id: 'dashboard', name: 'التحليلات والنظرة العامة' },
-  { id: 'tasks', name: 'المهام اليومية (Kanban)' },
-  { id: 'orders', name: 'إدارة الطلبات والمبيعات' },
-  { id: 'inventory', name: 'المخزون والمنتجات' },
-  { id: 'advisor', name: 'المستشار الفندقي' },
+  { id: 'overview', name: 'المهام اليومية (Kanban)' },
+  { id: 'ecommerce', name: 'إدارة المتجر والمنتجات' },
+  { id: 'orders', name: 'الطلبات والمواعيد' },
+  { id: 'projects', name: 'المشاريع والمقاولات (BOQ)' },
+  { id: 'factory', name: 'إدارة المصنع والعمالة' },
+  { id: 'analytics', name: 'التحليلات المالية والشاملة' },
+  { id: 'marketing', name: 'حملات التسويق (واتساب)' },
   { id: 'staff', name: 'إدارة الموظفين والصلاحيات' },
-  { id: 'settings', name: 'إعدادات النظام' },
+  { id: 'settings', name: 'إعدادات النظام والإشعارات' },
 ];
 
 export const StaffManagement = () => {
@@ -30,7 +32,7 @@ export const StaffManagement = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [newEmployee, setNewEmployee] = useState({ name: '', phone: '', email: '', password: '', role: 'staff' });
 
-  // حالات نافذة المهام (باقية كما هي)
+  // حالات نافذة المهام 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [taskLoading, setTaskLoading] = useState(false);
@@ -68,13 +70,12 @@ export const StaffManagement = () => {
     const res = await registerClient(newEmployee.name, newEmployee.email, newEmployee.phone, newEmployee.password);
     
     if (res.success && res.user) {
-      // تحديث الصلاحية بعد الإنشاء (لأن الدالة الافتراضية تجعله staff)
       await adminUpdateUserRole(res.user.id, newEmployee.role);
       
-      // إعطاؤه صلاحيات افتراضية مسموحة
+      // إعطاؤه صلاحيات افتراضية مسموحة حسب النظام الجديد
       const defaultTabs = newEmployee.role === 'manager' || newEmployee.role === 'owner' 
         ? SYSTEM_TABS.map(t => t.id) 
-        : ['dashboard', 'tasks'];
+        : ['overview', 'orders']; // الافتراضي للموظف العادي
       await updateUserTabs(res.user.id, defaultTabs);
 
       alert('تم إنشاء حساب الموظف بنجاح!');
@@ -90,8 +91,8 @@ export const StaffManagement = () => {
   // --- دوال صلاحيات التبويبات (الدرج) ---
   const openPermissionsDrawer = (user: any) => {
     setSelectedUserForPerms(user);
-    // قراءة التبويبات المسموحة من قاعدة البيانات (أو افتراضية إذا لم تكن موجودة)
-    setUserTabs(user.allowed_tabs || ['dashboard', 'tasks', 'orders']);
+    // قراءة التبويبات المسموحة (أو إعطاء افتراضية للقدامى)
+    setUserTabs(user.allowed_tabs || ['overview', 'orders']);
     setIsDrawerOpen(true);
   };
 
@@ -224,7 +225,7 @@ export const StaffManagement = () => {
               
               {SYSTEM_TABS.map(tab => {
                 const isAllowed = userTabs.includes(tab.id);
-                // منع إغلاق تبويب الإعدادات والموظفين عن المالك لتجنب حبس نفسه
+                // منع الأونر من إغلاق تبويب الإعدادات أو الموظفين عن نفسه
                 const isLockedForOwner = (selectedUserForPerms.role === 'owner') && (tab.id === 'settings' || tab.id === 'staff');
                 
                 return (
@@ -285,21 +286,21 @@ export const StaffManagement = () => {
         </div>
       )}
 
-      {/* --- نافذة إسناد المهمة (كما هي مسبقاً) --- */}
+      {/* --- نافذة إسناد المهمة --- */}
       {isTaskModalOpen && selectedEmployee && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-             <div className="bg-ukra-navy p-4 flex justify-between items-center text-white"><h3 className="font-bold text-ukra-gold">تكليف بمهمة</h3><button onClick={() => setIsTaskModalOpen(false)}><X /></button></div>
-             <form onSubmit={handleTaskSubmit} className="p-6 space-y-4">
+            <div className="bg-ukra-navy p-4 flex justify-between items-center text-white"><h3 className="font-bold text-ukra-gold">تكليف بمهمة</h3><button onClick={() => setIsTaskModalOpen(false)}><X /></button></div>
+            <form onSubmit={handleTaskSubmit} className="p-6 space-y-4">
                 <input required type="text" placeholder="عنوان المهمة" className="w-full border p-3 rounded-lg" value={taskForm.title} onChange={(e) => setTaskForm({...taskForm, title: e.target.value})} />
                 <textarea rows={3} placeholder="التفاصيل" className="w-full border p-3 rounded-lg" value={taskForm.description} onChange={(e) => setTaskForm({...taskForm, description: e.target.value})} />
                 <input required type="datetime-local" className="w-full border p-3 rounded-lg" value={taskForm.due_date} onChange={(e) => setTaskForm({...taskForm, due_date: e.target.value})} />
                 <button type="submit" disabled={taskLoading} className="w-full bg-ukra-gold text-white font-bold py-3 rounded-lg">{taskLoading ? 'جاري الإرسال...' : 'إرسال التكليف'}</button>
-             </form>
+            </form>
           </div>
         </div>
       )}
 
     </div>
   );
-};  
+};
