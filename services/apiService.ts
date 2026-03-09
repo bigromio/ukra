@@ -185,14 +185,13 @@ export const requestUnifiedOTP = async (phone: string, email: string): Promise<b
   }
 };
 
-// 2. التحقق من الرمز (محدثة لتجنب خطأ 406 و 409)
+// 2. التحقق من الرمز (محدثة لتجنب خطأ 406 و 409 ولجلب التبويبات)
 export const verifyUnifiedOTP = async (identifier: string, code: string): Promise<any> => {
   try {
     let cleanIdentifier = identifier.replace(/\D/g, '');
     if (cleanIdentifier.startsWith('05')) cleanIdentifier = '966' + cleanIdentifier.substring(1);
     if (!cleanIdentifier || cleanIdentifier.length < 5) cleanIdentifier = identifier;
 
-    // استخدام limit(1) بدلاً من single
     const { data: codes, error: codeErr } = await supabase
       .from('otp_codes')
       .select('*')
@@ -208,7 +207,6 @@ export const verifyUnifiedOTP = async (identifier: string, code: string): Promis
 
     await supabase.from('otp_codes').delete().eq('id', otpData.id);
 
-    // استخدام limit(1)
     let { data: profiles } = await supabase
       .from('customers')
       .select('*')
@@ -237,7 +235,8 @@ export const verifyUnifiedOTP = async (identifier: string, code: string): Promis
          name: profile.full_name, 
          role: profile.role || 'customer', 
          phone: profile.phone,
-         email: profile.email
+         email: profile.email,
+         allowed_tabs: profile.allowed_tabs || [] // 👈 هنا السر! قمنا بجلب التبويبات المسموحة
       }
     };
   } catch (error: any) {
@@ -268,7 +267,8 @@ export const loginClient = async (email: string, password: string): Promise<any>
         email: data.user.email,
         name: profile?.full_name || data.user.user_metadata.full_name || 'User',
         role: profile?.role || 'customer',
-        phone: profile?.phone
+        phone: profile?.phone,
+        allowed_tabs: profile?.allowed_tabs || [] // 👈 وهنا أيضاً أضفنا جلب التبويبات
       }
     };
   } catch (error: any) {
@@ -936,4 +936,199 @@ export const deleteWorkTicket = async (id: string) => {
   const { error } = await supabase.from('work_tickets').delete().eq('id', id);
   if (error) console.error('Delete Ticket Error:', error);
   return !error;
+};
+
+// ==========================================
+// قسم إدارة المصنع (العمال والمشتريات)
+// ==========================================
+
+/**
+ * 1. تحديث بيانات يوم العمل (تعديل التاريخ، إضافة خصم/سلفة)
+ */
+export const updateWorkTicket = async (id: number | string, updates: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('work_tickets')
+      .update(updates)
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ خطأ في تحديث بيانات التذكرة:', error);
+    return null;
+  }
+};
+
+/**
+ * 2. تسوية حسابات العمال (أرشفة الأيام المحددة بعد حسابها)
+ */
+export const settleTickets = async (ticketIds: (number | string)[]) => {
+  try {
+    const { data, error } = await supabase
+      .from('work_tickets')
+      .update({ is_archived: true }) // نغير حالة الأرشيف لإخفائها من شاشة المدير
+      .in('id', ticketIds)
+      .select();
+
+    if (error) throw error;
+    return data; 
+  } catch (error) {
+    console.error('❌ خطأ في تسوية الأيام:', error);
+    return null;
+  }
+};
+
+/**
+ * 3. إضافة مشتريات/مصروفات جديدة للمصنع
+ */
+export const createPurchase = async (purchaseData: {
+  item_name: string;
+  category: string;
+  amount: number;
+  project_id?: string;
+  receipt_url?: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('factory_purchases')
+      .insert([purchaseData])
+      .select();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ خطأ في تسجيل المشتريات:', error);
+    return null;
+  }
+};
+
+/**
+ * 4. جلب قائمة المشتريات والمصروفات لعرضها في الجدول
+ */
+export const fetchPurchases = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('factory_purchases')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ خطأ في جلب المشتريات:', error);
+    return [];
+  }
+};
+
+// ==========================================
+// قسم رفع الملفات والعهد المالية (للمحاسب ومدير المصنع)
+// ==========================================
+
+/**
+ * 1. دالة رفع الفواتير والإيصالات إلى مستودع (receipts)
+ */
+export const uploadReceiptImage = async (file: File) => {
+  try {
+    // توليد اسم فريد للملف لمنع التكرار
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    const filePath = `purchases/${fileName}`;
+
+    // رفع الملف إلى Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('receipts')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    // استخراج الرابط العام (Public URL) للملف بعد رفعه
+    const { data } = supabase.storage
+      .from('receipts')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (error) {
+    console.error('❌ خطأ في رفع الفاتورة:', error);
+    return null;
+  }
+};
+
+/**
+ * 2. دالة إضافة عهدة مالية جديدة (خاصة بالمحاسب)
+ */
+export const createPettyCash = async (cashData: { amount: number; receipt_url: string }) => {
+  try {
+    const { data, error } = await supabase
+      .from('petty_cash')
+      .insert([cashData])
+      .select();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ خطأ في تسجيل العهدة:', error);
+    return null;
+  }
+};
+
+/**
+ * 3. دالة جلب العهد المالية لعرضها (للمحاسب والمدير)
+ */
+export const fetchPettyCash = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('petty_cash')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ خطأ في جلب العهد:', error);
+    return [];
+  }
+};
+
+/**
+ * 4. دالة اعتماد العهدة (خاصة بمدير المصنع)
+ */
+export const approvePettyCash = async (id: string | number) => {
+  try {
+    const { data, error } = await supabase
+      .from('petty_cash')
+      .update({ status: 'approved' })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ خطأ في اعتماد العهدة:', error);
+    return null;
+  }
+};
+
+/**
+ * 5. دالة جلب المشاريع/الطلبات المفتوحة (لإجبار ربط الخامات بها)
+ */
+/**
+ * 5. دالة جلب المشاريع/الطلبات المفتوحة (لإجبار ربط الخامات بها)
+ */
+export const fetchActiveProjects = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      // نجلب الـ ID واسم المشروع، ونربطه بجدول العملاء لجلب اسم العميل
+      .select(`id, project_name, customers:customer_id(full_name)`)
+      .neq('status', 'Completed') // جلب كل الطلبات غير المكتملة
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ خطأ في جلب المشاريع:', error);
+    return [];
+  }
 };

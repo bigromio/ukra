@@ -4,12 +4,14 @@ import { Shield, Trash2, UserPlus, ClipboardList, X, Loader2, CheckSquare, Squar
 import { useLanguage } from '../../context/LanguageContext';
 
 // 🔴 تم تحديث قائمة التبويبات لتطابق الهيكل النهائي للوحة تحكم UKRA 🔴
+// 🔴 تم تحديث قائمة التبويبات لفصل المحاسب عن مدير المصنع 🔴
 const SYSTEM_TABS = [
-  { id: 'overview', name: 'المهام اليومية (Kanban)' },
+  { id: 'tasks', name: 'المهام اليومية (Kanban)' }, // تم توحيد الاسم ليتطابق مع القائمة الجانبية
   { id: 'ecommerce', name: 'إدارة المتجر والمنتجات' },
   { id: 'orders', name: 'الطلبات والمواعيد' },
   { id: 'projects', name: 'المشاريع والمقاولات (BOQ)' },
-  { id: 'factory', name: 'إدارة المصنع والعمالة' },
+  { id: 'factory_manager', name: 'إدارة المصنع والعمالة (للمدير)' },
+  { id: 'accountant', name: 'المالية والعهد (للمحاسب)' },
   { id: 'analytics', name: 'التحليلات المالية والشاملة' },
   { id: 'marketing', name: 'حملات التسويق (واتساب)' },
   { id: 'staff', name: 'إدارة الموظفين والصلاحيات' },

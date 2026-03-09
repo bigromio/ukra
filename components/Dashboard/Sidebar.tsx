@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, ClipboardList, ShoppingBag, ShoppingCart, Briefcase, Factory, Megaphone, Users, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, ShoppingBag, ShoppingCart, Briefcase, Factory, Megaphone, Users, Settings, LogOut, Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) => {
@@ -14,7 +14,8 @@ export const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setAct
     { id: 'ecommerce', label: 'إدارة المتجر والمنتجات', icon: ShoppingBag },
     { id: 'orders', label: 'الطلبات والمواعيد', icon: ShoppingCart },
     { id: 'projects', label: 'المشاريع والمقاولات', icon: Briefcase },
-    { id: 'factory', label: 'إدارة المصنع', icon: Factory },
+    { id: 'factory_manager', label: 'إدارة المصنع', icon: Factory },
+    { id: 'accountant', label: 'المالية والعهد', icon: Wallet },
     { id: 'marketing', label: 'حملات التسويق', icon: Megaphone },
     { id: 'staff', label: 'إدارة الموظفين', icon: Users },
     { id: 'settings', label: 'إعدادات النظام', icon: Settings },
@@ -29,7 +30,7 @@ export const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setAct
         <p className="text-[10px] text-gray-400 mt-1 uppercase">Control Panel</p>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
         {filteredMenu.map((item) => (
           <button
             key={item.id}
