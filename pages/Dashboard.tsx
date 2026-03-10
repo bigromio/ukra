@@ -5,7 +5,7 @@ import { fetchUserRole } from '../services/apiService';
 import { 
   LayoutDashboard, LogOut, FileText, Settings, Users, Bell, 
   Palette, FileSpreadsheet, TrendingUp, Send, User, ShieldCheck, ShoppingBag, 
-  Globe, Home, Menu, X, Factory, Briefcase, ShoppingCart
+  Globe, Home, Menu, X, Factory, Briefcase, ShoppingCart, ChevronDown
 } from 'lucide-react';
 
 // استيراد المكونات الفرعية
@@ -26,6 +26,7 @@ export const Dashboard = () => {
   
   const [realRole, setRealRole] = useState(localStorage.getItem('userRole') || 'customer');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false); // 👈 حالة القائمة المنسدلة
 
   // التحقق من الصلاحية عند التحميل
   useEffect(() => {
@@ -48,10 +49,8 @@ export const Dashboard = () => {
   const isStaff = currentRole === 'staff';
   const isCustomer = currentRole === 'customer';
 
-  // --- نظام الصلاحيات الذكي لإظهار وإخفاء التبويبات ---
-  // نقرأ التبويبات المسموحة من حساب المستخدم، وإذا لم تكن موجودة نعطيه الأساسيات فقط
+  // --- نظام الصلاحيات الذكي ---
   const allowedTabs = user?.allowed_tabs || ['overview', 'orders'];
-  // دالة مساعدة: الأونر يرى كل شيء دائماً، والموظف يرى المسموح له فقط
   const canSee = (tabId: string) => isOwner || allowedTabs.includes(tabId);
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -72,10 +71,14 @@ export const Dashboard = () => {
     }
   };
 
-  // --- مكونات مؤقتة للتبويبات الجديدة حتى نبرمجها ---
+  // --- مكونات مؤقتة ---
   const EcommercePlaceholder = () => <div className="p-10 text-center mt-20"><ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h2 className="text-2xl font-bold text-gray-400">🛒 إدارة المتجر والمنتجات (قيد البرمجة...)</h2></div>;
   const FactoryPlaceholder = () => <div className="p-10 text-center mt-20"><Factory className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h2 className="text-2xl font-bold text-gray-400">🏭 إدارة المصنع والعمالة (قيد البرمجة...)</h2></div>;
   const SettingsPlaceholder = () => <div className="p-10 text-center mt-20"><Settings className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h2 className="text-2xl font-bold text-gray-400">⚙️ إعدادات النظام والإشعارات (قيد البرمجة...)</h2></div>;
+
+  // جلب الاسم الذكي
+  const displayName = user?.name && user.name !== 'User' ? user.name : (localStorage.getItem('ukra_client_name') || 'مستخدم UKRA');
+  const displayInitial = displayName.charAt(0).toUpperCase();
 
   return (
     <div className="flex h-screen bg-[#F1F5F9] overflow-hidden font-tajawal" dir={dir}>
@@ -115,7 +118,7 @@ export const Dashboard = () => {
             <span className="font-bold text-sm">{lang === 'ar' ? 'تصفح الموقع' : 'Go to Website'}</span>
           </a>
 
-          {/* تبويبات الإدارة والموظفين (تظهر حسب الصلاحيات المحددة من الأونر) */}
+          {/* تبويبات الإدارة والموظفين */}
           {!isCustomer && (
             <>
               <div className="px-4 text-[10px] text-gray-500 font-bold uppercase mb-2 mt-4">إدارة العمليات</div>
@@ -139,22 +142,16 @@ export const Dashboard = () => {
             </>
           )}
 
-          {/* تبويبات العميل (ثابتة) */}
+          {/* تبويبات العميل */}
           {isCustomer && (
             <>
                <NavItem icon={<ShoppingBag />} label={lang === 'ar' ? 'طلباتي' : 'My Orders'} active={activeTab === 'my-orders'} onClick={() => handleTabClick('my-orders')} />
-               <NavItem icon={<User />} label={lang === 'ar' ? 'الملف الشخصي' : 'My Profile'} active={activeTab === 'profile'} onClick={() => handleTabClick('profile')} />
+               {/* تم نقل الملف الشخصي إلى القائمة المنسدلة العلوية */}
             </>
           )}
 
           <div className="h-10"></div>
         </nav>
-
-        <div className="p-4 border-t border-white/5 shrink-0 bg-[#1a2a3a]">
-          <button onClick={handleLogout} className="flex items-center justify-center w-full px-4 py-3 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all font-bold text-sm">
-            <LogOut className="w-5 h-5 ltr:mr-2 rtl:ml-2" /> {t('dash_logout')}
-          </button>
-        </div>
       </aside>
 
       {/* --- Main Content Area --- */}
@@ -165,7 +162,7 @@ export const Dashboard = () => {
                <Menu size={24} />
              </button>
              <h1 className="text-lg md:text-xl font-black text-[#1a2a3a] uppercase truncate max-w-[150px] md:max-w-none">
-               {activeTab.replace('-', ' ')}
+               {activeTab === 'profile' ? 'إعدادات الحساب' : activeTab.replace('-', ' ')}
              </h1>
            </div>
 
@@ -174,24 +171,57 @@ export const Dashboard = () => {
               <a href="/" className="p-2 text-gray-400 hover:text-[#c5a059] transition-colors rounded-full hover:bg-gray-50"><Home size={20} /></a>
               <div className="h-6 w-px bg-gray-200 mx-1 md:mx-2"></div>
               
-              <div className="flex items-center gap-2">
-                 <div className="hidden md:block text-right">
-                    <p className="text-sm font-bold text-[#1a2a3a]">{localStorage.getItem('ukra_client_phone') || 'User'}</p>
-                    <span className="text-[10px] bg-[#c5a059] text-white px-2 py-0.5 rounded font-bold uppercase block w-fit ml-auto rtl:mr-auto rtl:ml-0">
-                      {currentRole}
-                    </span>
-                 </div>
-                 <div className="w-8 h-8 md:w-10 md:h-10 bg-[#1a2a3a] rounded-full flex items-center justify-center text-white font-bold text-sm">
-                   {user?.name?.charAt(0) || 'U'}
-                 </div>
+              {/* 👈 منطقة الملف الشخصي والقائمة المنسدلة */}
+              <div className="relative">
+                <div 
+                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-xl transition-colors"
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                >
+                   <div className="hidden md:block text-right">
+                      <p className="text-sm font-bold text-[#1a2a3a]">{displayName}</p>
+                      <span className="text-[10px] bg-[#c5a059] text-white px-2 py-0.5 rounded font-bold uppercase block w-fit ml-auto rtl:mr-auto rtl:ml-0">
+                        {currentRole}
+                      </span>
+                   </div>
+                   <div className="w-8 h-8 md:w-10 md:h-10 bg-[#1a2a3a] rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md hover:bg-[#c5a059] transition-colors">
+                     {displayInitial}
+                   </div>
+                   <ChevronDown size={16} className={`text-gray-400 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                {/* القائمة المنسدلة (Dropdown) */}
+                {isProfileMenuOpen && (
+                  <>
+                    {/* خلفية شفافة لإغلاق القائمة عند النقر خارجها */}
+                    <div className="fixed inset-0 z-40" onClick={() => setIsProfileMenuOpen(false)}></div>
+                    <div className="absolute top-full left-0 rtl:left-0 rtl:right-auto mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                       <button 
+                         onClick={() => { setActiveTab('profile'); setIsProfileMenuOpen(false); }}
+                         className="flex items-center gap-3 w-full px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-[#c5a059] transition-colors"
+                       >
+                         <User size={18} /> إعدادات الحساب
+                       </button>
+                       <div className="h-px bg-gray-100 my-1"></div>
+                       <button 
+                         onClick={handleLogout}
+                         className="flex items-center gap-3 w-full px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
+                       >
+                         <LogOut size={18} /> تسجيل الخروج
+                       </button>
+                    </div>
+                  </>
+                )}
               </div>
            </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[#F1F5F9]">
           
-          {/* محتوى الإدارة والموظفين (يتم العرض حسب المسموح) */}
-          {!isCustomer && (
+          {/* محتوى الإعدادات الشخصية (يظهر للجميع) */}
+          {activeTab === 'profile' && <ProfileSettings />}
+
+          {/* محتوى الإدارة والموظفين */}
+          {!isCustomer && activeTab !== 'profile' && (
             <>
               {activeTab === 'overview' && <DailyTasks filterUserId={isStaff ? user?.id : undefined} />}
               {activeTab === 'ecommerce' && <EcommerceManagement />}
@@ -206,10 +236,9 @@ export const Dashboard = () => {
           )}
 
           {/* محتوى العميل */}
-          {isCustomer && (
+          {isCustomer && activeTab !== 'profile' && (
             <>
               {activeTab === 'my-orders' && <ClientOrders />}
-              {activeTab === 'profile' && <ProfileSettings />}
             </>
           )}
 

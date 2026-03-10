@@ -1,180 +1,213 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { requestLoginOTP, requestRegisterOTP, verifyUnifiedOTP } from '../services/apiService';
+import { Phone, Mail, User as UserIcon, ShieldCheck, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { useCart } from '../context/CartContext';
-import { requestUnifiedOTP, verifyUnifiedOTP } from '../services/apiService'; 
-import { supabase } from '../lib/supabase';
-import { Phone, Mail, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
 
 export const ClientAuth = () => {
-  const { t, lang, dir } = useLanguage();
-  const { refreshCart } = useCart();
-  
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState(''); // ✅ إضافة حالة الإيميل
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+  const { dir } = useLanguage();
+
+  // هل المستخدم جاء من صفحة الدفع/الحجز ليعود إليها؟
+  const returnUrl = location.state?.from || '/dashboard'
+
+  // حالات الشاشة
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>('phone'); // تحديد وسيلة الدخول
+  const [step, setStep] = useState<'input' | 'otp'>('input');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // التحقق من الجلسة الحالية
-  useEffect(() => {
-    const isAuth = localStorage.getItem('isAuthenticated');
-    if (isAuth === 'true') {
-      window.location.hash = '/dashboard';
-    }
-  }, []);
+  // بيانات النموذج
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
+  const [loginIdentifier, setLoginIdentifier] = useState(''); // حقل الدخول الموحد للجوال أو الإيميل
+  const [otpCode, setOtpCode] = useState('');
 
-// إرسال الرمز للجهتين معاً (النظام الموحد)
-  const handleSendOtp = async (e: React.FormEvent) => {
+  // 1. طلب الرمز
+  const handleRequestOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 9 || !email) {
-      alert(lang === 'ar' ? 'الرجاء إدخال رقم الجوال والبريد الإلكتروني' : 'Please enter valid phone and email');
-      return;
-    }
+    setError('');
     setLoading(true);
 
-    // ✅ استدعاء الدالة الموحدة (بدون التخزين اليدوي هنا، الدالة تقوم بكل شيء)
-    const success = await requestUnifiedOTP(phone, email);
-    
-    setLoading(false);
-    if (success) {
-       setStep('otp');
+    let res;
+    if (authMode === 'login') {
+      res = await requestLoginOTP(loginIdentifier, loginMethod);
     } else {
-       alert(lang === 'ar' ? 'فشل إرسال الرمز، يرجى المحاولة لاحقاً.' : 'Failed to send OTP.');
+      res = await requestRegisterOTP(formData.name, formData.phone, formData.email);
     }
+
+    if (res.success) {
+      setStep('otp');
+    } else {
+      setError(res.message);
+    }
+    setLoading(false);
   };
 
-  // التحقق من الرمز والدخول
-  const handleVerify = async (e: React.FormEvent) => {
+  // 2. التحقق من الرمز
+  const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
 
-    // ✅ استدعاء دالة التحقق المركزية
-    const response = await verifyUnifiedOTP(phone, otp);
+    const identifierToVerify = authMode === 'login' ? loginIdentifier : formData.phone;
+    const registerData = authMode === 'register' ? formData : undefined;
 
-    if (response.success && response.user) {
-      // تنظيف الجلسة القديمة
-      localStorage.clear();
-      
-      // حفظ بيانات الجلسة الجديدة
-      localStorage.setItem('ukra_client_id', response.user.id);
-      localStorage.setItem('ukra_client_phone', response.user.phone);
-      localStorage.setItem('ukra_client_name', response.user.name || 'Guest User');
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userRole', response.user.role); 
+    const res = await verifyUnifiedOTP(identifierToVerify, otpCode, registerData);
 
-      await refreshCart();
-
-      window.location.hash = '/dashboard';
-      window.location.reload();
+    if (res.success && res.user) {
+      login(res.user);
+      navigate(returnUrl, { replace: true });
     } else {
-      alert(lang === 'ar' ? 'رمز التحقق غير صحيح أو منتهي الصلاحية' : 'Invalid or expired OTP');
+      setError(res.message);
     }
-    
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F1F5F9] px-4 font-tajawal" dir={dir}>
-      <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-xl border border-gray-100">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-cairo" dir={dir}>
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
         
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-[#1a2a3a] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#1a2a3a]/20">
-             <ShieldCheck className="text-[#c5a059] w-10 h-10" />
+        {/* الترويسة */}
+        <div className="bg-[#1a2a3a] p-6 text-center relative">
+          <button onClick={() => navigate(-1)} className="absolute right-4 top-6 text-gray-400 hover:text-white transition-colors">
+            <ArrowRight size={24} />
+          </button>
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <ShieldCheck size={32} className="text-[#c5a059]" />
           </div>
-          <h1 className="text-2xl font-black text-[#1a2a3a] mb-2">UKRA <span className="text-[#c5a059]">LOGIN</span></h1>
-          <p className="text-gray-400 text-sm font-bold">
-            {lang === 'ar' ? 'بوابة الدخول الموحدة' : 'Unified Access Portal'}
-          </p>
+          <h2 className="text-2xl font-black text-white">UKRA Secure Access</h2>
+          <p className="text-gray-400 text-sm mt-1">بوابة الدخول الموحدة للعملاء</p>
         </div>
 
-{step === 'phone' ? (
-          <form onSubmit={handleSendOtp} className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {lang === 'ar' ? 'رقم الجوال' : 'Phone Number'}
-              </label>
-              <div className="relative">
-                <Phone className="absolute top-4 left-4 text-gray-400 w-5 h-5 rtl:right-4 rtl:left-auto" />
-                <input 
-                  type="tel" 
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="05xxxxxxxx"
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#c5a059] font-bold text-lg rtl:pr-12 rtl:pl-4 text-left"
-                  dir="ltr"
-                />
-              </div>
+        <div className="p-6 md:p-8">
+          {error && (
+            <div className="bg-red-50 border-r-4 border-red-500 p-4 rounded-lg mb-6 text-red-700 text-sm font-bold animate-in fade-in">
+              {error}
             </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {lang === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}
-              </label>
-              <div className="relative">
-                <Mail className="absolute top-4 left-4 text-gray-400 w-5 h-5 rtl:right-4 rtl:left-auto" />
-                <input 
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="example@mail.com"
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#c5a059] font-bold text-lg rtl:pr-12 rtl:pl-4 text-left"
-                  dir="ltr"
-                />
-              </div>
-            </div>
+          )}
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full mt-2 py-4 bg-[#1a2a3a] text-white rounded-xl font-bold hover:bg-[#c5a059] transition-all flex items-center justify-center gap-2 shadow-lg"
-            >
-              {loading ? <Loader2 className="animate-spin" /> : (
-                <>
-                  {lang === 'ar' ? 'إرسال الرمز للواتساب والإيميل' : 'Send Code to WhatsApp & Email'} 
-                  <ArrowRight className="w-5 h-5 rtl:rotate-180" />
-                </>
-              )}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerify} className="space-y-6 animate-in fade-in slide-in-from-right-4">
-            <div className="bg-blue-50 p-3 rounded-xl text-blue-800 text-xs font-bold text-center">
-               {lang === 'ar' ? 'تم إرسال الرمز للواتساب والبريد الإلكتروني' : 'OTP sent to WhatsApp and Email'}
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {lang === 'ar' ? 'رمز التحقق المرسل' : 'Verification Code'}
-              </label>
-              <input 
-                type="text" 
-                required
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="XXXX"
-                className="w-full py-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#c5a059] font-black text-2xl text-center tracking-widest"
-                maxLength={4}
-                dir="ltr"
-              />
-            </div>
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full py-4 bg-[#c5a059] text-white rounded-xl font-bold hover:bg-[#b08d4a] transition-all flex items-center justify-center gap-2 shadow-lg"
-            >
-              {loading ? <Loader2 className="animate-spin" /> : (lang === 'ar' ? 'تحقق ودخول' : 'Verify & Login')}
-            </button>
-            <button 
-              type="button"
-              onClick={() => setStep('phone')}
-              className="w-full text-center text-gray-400 text-sm font-bold hover:text-[#1a2a3a]"
-            >
-              {lang === 'ar' ? 'تعديل البيانات' : 'Edit Details'}
-            </button>
-          </form>
-        )}
+          {step === 'input' ? (
+            <div className="animate-in slide-in-from-right duration-300">
+              
+              {/* تبويبات التبديل (عميل مسجل / عميل جديد) */}
+              <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
+                <button
+                  onClick={() => { setAuthMode('login'); setError(''); }}
+                  className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${authMode === 'login' ? 'bg-white text-[#1a2a3a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  عميل مسجل
+                </button>
+                <button
+                  onClick={() => { setAuthMode('register'); setError(''); }}
+                  className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${authMode === 'register' ? 'bg-white text-[#1a2a3a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  عميل جديد
+                </button>
+              </div>
 
+              <form onSubmit={handleRequestOTP} className="space-y-4">
+                
+                {authMode === 'login' ? (
+                  <>
+                    {/* خيارات وسيلة الدخول للعميل المسجل */}
+                    <div className="flex gap-4 mb-4">
+                      <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${loginMethod === 'phone' ? 'border-[#c5a059] bg-yellow-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                        <input type="radio" checked={loginMethod === 'phone'} onChange={() => setLoginMethod('phone')} className="hidden" />
+                        <Phone size={18} className={loginMethod === 'phone' ? 'text-[#c5a059]' : 'text-gray-400'} />
+                        <span className={`font-bold text-sm ${loginMethod === 'phone' ? 'text-[#c5a059]' : 'text-gray-500'}`}>رسالة جوال</span>
+                      </label>
+                      <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${loginMethod === 'email' ? 'border-[#c5a059] bg-yellow-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                        <input type="radio" checked={loginMethod === 'email'} onChange={() => setLoginMethod('email')} className="hidden" />
+                        <Mail size={18} className={loginMethod === 'email' ? 'text-[#c5a059]' : 'text-gray-400'} />
+                        <span className={`font-bold text-sm ${loginMethod === 'email' ? 'text-[#c5a059]' : 'text-gray-500'}`}>بريد إلكتروني</span>
+                      </label>
+                    </div>
+
+                    <div className="relative">
+                      {loginMethod === 'phone' ? <Phone className="absolute right-3 top-3 text-gray-400" size={20} /> : <Mail className="absolute right-3 top-3 text-gray-400" size={20} />}
+                      <input 
+                        required 
+                        type={loginMethod === 'phone' ? 'tel' : 'email'} 
+                        placeholder={loginMethod === 'phone' ? '05XXXXXXXX' : 'البريد الإلكتروني'} 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-4 pr-10 outline-none focus:border-[#c5a059] transition-all font-num text-right" 
+                        dir="ltr" 
+                        value={loginIdentifier} 
+                        onChange={(e) => setLoginIdentifier(e.target.value)} 
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* حقول تسجيل العميل الجديد */}
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">الاسم الكامل *</label>
+                      <div className="relative">
+                        <UserIcon className="absolute right-3 top-3 text-gray-400" size={20} />
+                        <input required type="text" placeholder="الاسم الرباعي" className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-4 pr-10 outline-none focus:border-[#c5a059] transition-all" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">رقم الجوال *</label>
+                      <div className="relative">
+                        <Phone className="absolute right-3 top-3 text-gray-400" size={20} />
+                        <input required type="tel" placeholder="05XXXXXXXX" className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-4 pr-10 outline-none focus:border-[#c5a059] transition-all font-num text-right" dir="ltr" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">البريد الإلكتروني *</label>
+                      <div className="relative">
+                        <Mail className="absolute right-3 top-3 text-gray-400" size={20} />
+                        <input required type="email" placeholder="example@email.com" className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-4 pr-10 outline-none focus:border-[#c5a059] transition-all font-num text-right" dir="ltr" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2 text-center font-bold">سيتم إرسال رمز التفعيل للوسيلتين معاً لضمان أمان حسابك.</p>
+                  </>
+                )}
+
+                <button type="submit" disabled={loading} className="w-full bg-[#1a2a3a] hover:bg-opacity-90 text-white font-bold py-4 rounded-xl mt-6 transition-all flex justify-center items-center shadow-md">
+                  {loading ? <Loader2 className="animate-spin" size={24} /> : (authMode === 'login' ? 'إرسال رمز الدخول' : 'إنشاء حساب جديد')}
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="animate-in slide-in-from-left duration-300 text-center">
+              <h3 className="text-xl font-bold text-[#1a2a3a] mb-4">أدخل رمز التحقق</h3>
+              
+              <div className="bg-yellow-50 p-4 rounded-xl text-yellow-800 text-sm flex gap-2 text-right mb-6">
+                 <AlertCircle className="shrink-0" size={20} />
+                 <p>{authMode === 'register' ? 'تم إرسال الرمز للواتساب والإيميل معاً.' : `تم إرسال الرمز إلى ${loginMethod === 'phone' ? 'جوالك' : 'بريدك الإلكتروني'}`}</p>
+              </div>
+
+              <form onSubmit={handleVerifyOTP} className="space-y-6">
+                <input 
+                  required 
+                  autoFocus
+                  type="text" 
+                  maxLength={4}
+                  placeholder="••••" 
+                  className="w-full max-w-[200px] mx-auto bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl py-4 text-center text-3xl tracking-[1em] font-num outline-none focus:border-[#c5a059] transition-all" 
+                  value={otpCode} 
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} 
+                />
+
+                <button type="submit" disabled={loading || otpCode.length !== 4} className="w-full bg-[#c5a059] hover:bg-yellow-600 text-white font-bold py-4 rounded-xl transition-all flex justify-center items-center shadow-md disabled:opacity-50">
+                  {loading ? <Loader2 className="animate-spin" size={24} /> : 'تأكيد الدخول'}
+                </button>
+
+                <button type="button" onClick={() => { setStep('input'); setOtpCode(''); }} className="text-sm text-gray-500 hover:text-[#1a2a3a] font-bold underline decoration-dashed underline-offset-4">
+                  تعديل البيانات وإعادة الإرسال
+                </button>
+              </form>
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
   );

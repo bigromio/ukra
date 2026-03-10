@@ -17,29 +17,42 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // 1. القراءة المباشرة من الذاكرة قبل رسم الصفحة (Lazy Initialization) لمنع الوميض
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem('ukra_user_session');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
 
+  // 2. المزامنة في الخلفية (Background Sync) للتأكد من الصلاحيات
   useEffect(() => {
-    const initAuth = async () => {
-      // 1. Load from local storage first for speed
+    const syncAuth = async () => {
       const stored = localStorage.getItem('ukra_user_session');
       if (stored) {
         const parsedUser = JSON.parse(stored);
-        setUser(parsedUser);
-
-        // 2. Background check: Sync role with server
-        // [تعديل هام] استخدام ID بدلاً من Email للتحقق من الدور
-        if (parsedUser.id && !MOCK_USERS[parsedUser.username]) {
+        
+        // نستخدم رقم الجوال كما اتفقنا سابقاً لأنه المعرف الأساسي
+        if (parsedUser.phone && !MOCK_USERS[parsedUser.username || '']) {
            try {
-             const res = await fetchUserRole(parsedUser.id);
+             const res = await fetchUserRole(parsedUser.phone);
              if (res && res.success) {
-                // If role changed in sheet, update it here
-                if (res.role !== parsedUser.role || res.name !== parsedUser.name) {
+                const currentTabsStr = JSON.stringify(parsedUser.allowed_tabs || []);
+                const newTabsStr = JSON.stringify(res.allowed_tabs || []);
+                
+                // تحديث الجلسة إذا تغيرت الصلاحيات أو الدور أو الاسم من الإدارة
+                if (res.role !== parsedUser.role || res.name !== parsedUser.name || currentTabsStr !== newTabsStr) {
                   const updatedUser = { 
                     ...parsedUser, 
                     role: res.role as UserRole,
                     name: res.name || parsedUser.name,
-                    phone: res.phone || parsedUser.phone
+                    phone: res.phone || parsedUser.phone,
+                    allowed_tabs: res.allowed_tabs
                   };
                   setUser(updatedUser);
                   localStorage.setItem('ukra_user_session', JSON.stringify(updatedUser));
@@ -52,7 +65,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
 
-    initAuth();
+    syncAuth();
   }, []);
 
   // Unified Login Function
@@ -80,11 +93,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setUser(null);
     localStorage.removeItem('ukra_user_session');
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('ukra_client_id');
+    localStorage.removeItem('ukra_client_phone');
+    localStorage.removeItem('ukra_client_name');
   };
 
-  const isAdmin = user?.role === UserRole.OWNER || user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
-  const isOwnerOrManager = user?.role === UserRole.OWNER || user?.role === UserRole.MANAGER;
-  const isClient = user?.role === UserRole.CLIENT;
+  const isAdmin = user?.role === UserRole.OWNER || user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE || user?.role === 'owner' || user?.role === 'manager' || user?.role === 'staff';
+  const isOwnerOrManager = user?.role === UserRole.OWNER || user?.role === UserRole.MANAGER || user?.role === 'owner' || user?.role === 'manager';
+  const isClient = user?.role === UserRole.CLIENT || user?.role === 'customer';
 
   return (
     <AuthContext.Provider value={{ 

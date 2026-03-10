@@ -15,6 +15,7 @@ export interface User {
   pin?: string;      // Legacy support
   phone?: string;
   points_balance?: number;
+  allowed_tabs?: string[];
 }
 
 // --- Product & Store Types ---

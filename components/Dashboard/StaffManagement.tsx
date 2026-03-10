@@ -6,12 +6,13 @@ import { useLanguage } from '../../context/LanguageContext';
 // 🔴 تم تحديث قائمة التبويبات لتطابق الهيكل النهائي للوحة تحكم UKRA 🔴
 // 🔴 تم تحديث قائمة التبويبات لفصل المحاسب عن مدير المصنع 🔴
 const SYSTEM_TABS = [
-  { id: 'tasks', name: 'المهام اليومية (Kanban)' }, // تم توحيد الاسم ليتطابق مع القائمة الجانبية
+  { id: 'overview', name: 'المهام اليومية (Kanban)' }, // 👈 غيّرنا id ليكون overview ليتطابق مع Dashboard
   { id: 'ecommerce', name: 'إدارة المتجر والمنتجات' },
   { id: 'orders', name: 'الطلبات والمواعيد' },
   { id: 'projects', name: 'المشاريع والمقاولات (BOQ)' },
-  { id: 'factory_manager', name: 'إدارة المصنع والعمالة (للمدير)' },
-  { id: 'accountant', name: 'المالية والعهد (للمحاسب)' },
+  { id: 'factory', name: 'الوصول لتبويب المصنع (أساسي)' }, // 👈 تغيير من label إلى name
+  { id: 'factory_manager', name: 'صلاحية: مدير تشغيل المصنع' }, // 👈 تغيير من label إلى name
+  { id: 'factory_accountant', name: 'صلاحية: محاسب المصنع' }, // 👈 تغيير من label إلى name
   { id: 'analytics', name: 'التحليلات المالية والشاملة' },
   { id: 'marketing', name: 'حملات التسويق (واتساب)' },
   { id: 'staff', name: 'إدارة الموظفين والصلاحيات' },
@@ -22,6 +23,20 @@ export const StaffManagement = () => {
   const { dir } = useLanguage();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // 👈 إضافة حالة التبويب الداخلي (موظفين أو عملاء)
+  const [activeSubTab, setActiveSubTab] = useState<'staff' | 'customers'>('staff');
+
+  // 👈 تصفية المستخدمين بناءً على التبويب النشط
+  const filteredUsers = users.filter(user => {
+    if (activeSubTab === 'staff') {
+      return ['owner', 'manager', 'staff'].includes(user.role);
+    } else {
+      return ['customer', 'CLIENT'].includes(user.role);
+    }
+  });
+  
+  // حالات النافذة الجانبية (درج الصلاحيات)
   
   // حالات النافذة الجانبية (درج الصلاحيات)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -138,16 +153,35 @@ export const StaffManagement = () => {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 font-cairo" dir={dir}>
-      <div className="flex justify-between items-center mb-6">
+<div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-2xl font-bold text-ukra-navy flex items-center gap-2">
-          <Shield className="text-ukra-gold" /> إدارة فريق العمل والصلاحيات
+          <Shield className="text-ukra-gold" /> {activeSubTab === 'staff' ? 'إدارة فريق العمل' : 'إدارة العملاء'}
         </h2>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 bg-ukra-navy text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-all text-sm font-bold"
-        >
-          <UserPlus size={18} /> إضافة موظف جديد
-        </button>
+        
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          {/* أزرار التبديل */}
+          <div className="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto">
+            <button 
+              onClick={() => setActiveSubTab('staff')} 
+              className={`flex-1 md:flex-none px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeSubTab === 'staff' ? 'bg-white text-ukra-navy shadow-sm' : 'text-gray-500 hover:text-ukra-navy'}`}
+            >
+              فريق العمل
+            </button>
+            <button 
+              onClick={() => setActiveSubTab('customers')} 
+              className={`flex-1 md:flex-none px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeSubTab === 'customers' ? 'bg-white text-ukra-navy shadow-sm' : 'text-gray-500 hover:text-ukra-navy'}`}
+            >
+              العملاء
+            </button>
+          </div>
+
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-ukra-navy text-white px-4 py-2.5 rounded-xl hover:bg-opacity-90 transition-all text-sm font-bold shrink-0"
+          >
+            <UserPlus size={18} /> {activeSubTab === 'staff' ? 'إضافة موظف' : 'إضافة عميل'}
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -161,8 +195,11 @@ export const StaffManagement = () => {
               <th className="p-4 rounded-l-lg text-center">الإجراءات</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
-            {users.map((user, idx) => (
+            <tbody className="divide-y divide-gray-50">
+            {filteredUsers.length === 0 && (
+              <tr><td colSpan={5} className="p-8 text-center text-gray-500 font-bold">لا يوجد بيانات لعرضها في هذا التبويب.</td></tr>
+            )}
+            {filteredUsers.map((user, idx) => (
               <tr key={idx} className="hover:bg-gray-50 transition-colors">
                 <td className="p-4 font-bold">
                   <button 

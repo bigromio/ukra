@@ -11,24 +11,15 @@ export const Navbar = () => {
   
   const location = useLocation();
   const navigate = useNavigate();
-  const { t, toggleLang, lang, dir } = useLanguage();
-  const { user } = useAuth(); // للموظفين والأدمن
+  const { t, toggleLang, lang } = useLanguage();
+  const { user } = useAuth(); 
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-
-    const checkClientAuth = () => {
-      // التحقق مما إذا كان العميل مسجلاً للدخول عبر الواتساب
-      const auth = localStorage.getItem('isAuthenticated') === 'true';
-      setIsClientLoggedIn(auth);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const checkClientAuth = () => setIsClientLoggedIn(localStorage.getItem('isAuthenticated') === 'true');
 
     window.addEventListener('scroll', handleScroll);
     checkClientAuth();
-    
-    // مراقبة التغييرات في التخزين المحلي لتحديث الزر فوراً
     window.addEventListener('storage', checkClientAuth);
 
     return () => {
@@ -37,17 +28,21 @@ export const Navbar = () => {
     };
   }, []);
 
-  // تحديد ما إذا كان المستخدم مسجلاً (سواء موظف أو عميل)
-  const anyAuth = user || isClientLoggedIn;
+  // إغلاق القائمة الجانبية تلقائياً عند تغيير الصفحة
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
 
+  const anyAuth = user || isClientLoggedIn;
   const isTransparentHeaderPage = location.pathname === '/' || location.pathname === '/wood-catalog';
   
   const headerClass = isTransparentHeaderPage && !scrolled 
     ? 'bg-transparent text-white shadow-none' 
-    : 'bg-white/95 backdrop-blur shadow-sm text-ukra-navy';
+    : 'bg-white shadow-sm text-ukra-navy';
 
   const logoColor = isTransparentHeaderPage && !scrolled ? 'text-white' : 'text-ukra-navy';
 
+  // التبويبات الموحدة للموقع (ستُستخدم في سطح المكتب والجوال)
   const navLinks = [
     { name: t('nav_home'), path: '/' },
     { name: t('nav_store'), path: '/store' },
@@ -63,7 +58,8 @@ export const Navbar = () => {
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${headerClass}`}>
+      {/* الشريط العلوي - z-index مرتفع 100 */}
+      <nav className={`fixed top-0 left-0 w-full z-[100] transition-all duration-500 ${headerClass}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             
@@ -72,8 +68,8 @@ export const Navbar = () => {
             </Link>
 
             {/* Desktop Menu */}
-            <div className="hidden md:flex items-center gap-8">
-              <div className="flex items-baseline space-x-8 rtl:space-x-reverse">
+            <div className="hidden lg:flex items-center gap-6">
+              <div className="flex items-baseline space-x-6 rtl:space-x-reverse">
                 {navLinks.map((link) => (
                   link.path.startsWith('/#') ? (
                     <a key={link.name} href={link.path.substring(1)} className="relative font-bold text-sm hover:text-ukra-gold transition-colors duration-200 group">
@@ -97,11 +93,10 @@ export const Navbar = () => {
                 </Link>
               </div>
               
-              <button onClick={toggleLang} className="border border-ukra-gold text-ukra-gold px-4 py-1 rounded-full text-xs font-bold hover:bg-ukra-gold hover:text-white transition">
+              <button onClick={toggleLang} className="border border-ukra-gold text-ukra-gold px-3 py-1 rounded-full text-xs font-bold hover:bg-ukra-gold hover:text-white transition">
                 {lang === 'ar' ? 'EN' : 'AR'}
               </button>
 
-              {/* تحويل زر الدخول إلى لوحة التحكم عند التسجيل */}
               {anyAuth ? (
                  <Link to="/dashboard" className="bg-[#1a2a3a] text-ukra-gold font-bold px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-ukra-gold hover:text-white transition-all">
                     <LayoutDashboard className="w-4 h-4" /> 
@@ -115,7 +110,7 @@ export const Navbar = () => {
             </div>
 
             {/* Mobile menu button */}
-            <div className="-mr-2 flex md:hidden items-center gap-3">
+            <div className="-mr-2 flex lg:hidden items-center gap-3">
               {anyAuth ? (
                 <Link to="/dashboard" className={`p-2 rounded-full bg-ukra-gold/10 text-ukra-gold`}>
                    <User className="h-6 w-6" />
@@ -125,64 +120,75 @@ export const Navbar = () => {
                    Login
                 </Link>
               )}
-              <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-md hover:text-ukra-gold">
+              <button onClick={() => setIsOpen(true)} className="p-2 rounded-md hover:text-ukra-gold">
                 <Menu className={`h-6 w-6 ${logoColor}`} />
               </button>
             </div>
           </div>
         </div>
-
-        {/* Mobile Menu Panel */}
-        {isOpen && (
-          <div className="fixed inset-0 bg-black/50 z-[55] backdrop-blur-sm md:hidden" onClick={closeMenu} />
-        )}
-        <div className={`fixed top-0 bottom-0 ${lang === 'ar' ? 'right-0' : 'left-0'} w-[80%] max-w-sm bg-white z-[60] shadow-2xl transform transition-transform duration-300 ease-out flex flex-col p-6 ${sideClass} md:hidden`}>
-           <div className="flex justify-between items-center border-b border-gray-100 pb-4 mb-6">
-              <span className="font-black text-2xl text-ukra-navy">UKRA<span className="text-ukra-gold">.SA</span></span>
-              <button onClick={closeMenu} className="p-2 text-gray-400 hover:text-red-500">
-                <X className="w-6 h-6" />
-              </button>
-           </div>
-
-           <div className="flex flex-col gap-4">
-             {anyAuth ? (
-               <Link to="/dashboard" onClick={closeMenu} className="bg-ukra-navy text-white p-4 rounded-xl flex items-center gap-3 mb-4">
-                 <div className="bg-ukra-gold p-2 rounded-full text-ukra-navy"><User className="w-6 h-6" /></div>
-                 <div>
-                   <p className="text-xs text-gray-300">{lang === 'ar' ? 'أهلاً بك' : 'Welcome'}</p>
-                   <p className="font-bold">{user?.name || (lang === 'ar' ? 'العميل' : 'Client')}</p>
-                 </div>
-               </Link>
-             ) : (
-               <Link to="/client-login" onClick={closeMenu} className="py-3 bg-ukra-gold text-ukra-navy text-center rounded-lg font-bold">
-                  {lang === 'ar' ? 'دخول / تسجيل' : 'Log In / Register'}
-               </Link>
-             )}
-           
-             <a href="/" onClick={(e) => {e.preventDefault(); navigate('/'); closeMenu();}} className="text-lg font-bold text-ukra-navy">{t('nav_home')}</a>
-             <Link to="/store" onClick={closeMenu} className="text-lg font-bold text-ukra-navy flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5" /> {t('nav_store')}
-             </Link> 
-             <Link to="/wood-catalog" onClick={closeMenu} className="text-lg font-bold text-ukra-gold bg-yellow-50 p-2 rounded">كتالوج الأخشاب</Link>
-             <Link to="/hotel-advisor" onClick={closeMenu} className="text-lg font-bold text-ukra-navy flex items-center gap-2">
-                <Calculator className="w-5 h-5" /> مستشار الفنادق
-             </Link>
-             <Link to="/book-appointment" onClick={closeMenu} className="text-lg font-bold text-white bg-ukra-navy p-2 rounded flex items-center gap-2">
-                <Calendar className="w-5 h-5" /> {t('book_title')}
-             </Link>
-           </div>
-           
-           <div className="mt-auto border-t border-gray-100 pt-6">
-              <button onClick={()=>{toggleLang(); closeMenu()}} className="w-full py-3 border border-ukra-gold text-ukra-gold font-bold rounded">
-                {lang === 'ar' ? 'Switch to English' : 'تغيير للعربية'}
-              </button>
-              <Link to="/admin-login" onClick={closeMenu} className="block text-center text-xs text-gray-400 mt-4 flex items-center justify-center gap-1">
-                 <Lock className="w-3 h-3" /> Admin Access
-              </Link>
-           </div>
-        </div>
       </nav>
-      <ScrollToTop />
+
+      {/* Mobile Menu Panel - Overlays - z-index عالي جداً 990 لمنع أي تداخل */}
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[990] backdrop-blur-sm lg:hidden" onClick={closeMenu} />
+      )}
+      
+      {/* Mobile Menu Panel - تم وضع bg-white صريحة و z-index عالي جداً 1000 */}
+      <div className={`fixed top-0 bottom-0 ${lang === 'ar' ? 'right-0' : 'left-0'} w-[85%] max-w-sm bg-white z-[1000] shadow-2xl transform transition-transform duration-300 ease-out flex flex-col p-6 ${sideClass} lg:hidden`}>
+         <div className="flex justify-between items-center border-b border-gray-100 pb-4 mb-6 shrink-0">
+            <span className="font-black text-2xl text-ukra-navy">UKRA<span className="text-ukra-gold">.SA</span></span>
+            <button onClick={closeMenu} className="p-2 text-gray-400 hover:text-red-500 bg-gray-50 rounded-full">
+              <X className="w-5 h-5" />
+            </button>
+         </div>
+
+         <div className="flex flex-col gap-4 overflow-y-auto pb-6 custom-scrollbar">
+           {anyAuth ? (
+             <Link to="/dashboard" onClick={closeMenu} className="bg-ukra-navy text-white p-4 rounded-xl flex items-center gap-3 mb-4">
+               <div className="bg-ukra-gold p-2 rounded-full text-ukra-navy"><User className="w-6 h-6" /></div>
+               <div>
+                 <p className="text-xs text-gray-300">{lang === 'ar' ? 'أهلاً بك' : 'Welcome'}</p>
+                 <p className="font-bold">{user?.name || (localStorage.getItem('ukra_client_name')) || (lang === 'ar' ? 'العميل' : 'Client')}</p>
+               </div>
+             </Link>
+           ) : (
+             <Link to="/client-login" onClick={closeMenu} className="py-3 bg-ukra-gold text-ukra-navy text-center rounded-lg font-bold mb-4">
+                {lang === 'ar' ? 'دخول / تسجيل' : 'Log In / Register'}
+             </Link>
+           )}
+         
+           {/* ✅ تطابق التبويبات تماماً مع سطح المكتب */}
+           {navLinks.map((link) => (
+              link.path.startsWith('/#') ? (
+                <a key={link.name} href={link.path.substring(1)} onClick={closeMenu} className="text-lg font-bold text-ukra-navy border-b border-gray-50 pb-3">
+                  {link.name}
+                </a>
+              ) : (
+                <Link key={link.name} to={link.path} onClick={closeMenu} className="text-lg font-bold text-ukra-navy border-b border-gray-50 pb-3 flex items-center gap-2">
+                  {link.path === '/store' && <ShoppingBag className="w-5 h-5 text-ukra-gold" />}
+                  {link.name}
+                </Link>
+              )
+            ))}
+
+           <Link to="/wood-catalog" onClick={closeMenu} className="text-lg font-bold text-ukra-gold bg-yellow-50 p-3 rounded-lg mt-2">كتالوج الأخشاب</Link>
+           <Link to="/hotel-advisor" onClick={closeMenu} className="text-lg font-bold text-ukra-navy flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+              <Calculator className="w-5 h-5 text-ukra-gold" /> مستشار الفنادق
+           </Link>
+           <Link to="/book-appointment" onClick={closeMenu} className="text-lg font-bold text-white bg-ukra-navy p-3 rounded-lg flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-ukra-gold" /> {t('book_title')}
+           </Link>
+         </div>
+         
+         <div className="mt-auto border-t border-gray-100 pt-6 shrink-0">
+            <button onClick={()=>{toggleLang(); closeMenu()}} className="w-full py-3 border-2 border-ukra-gold text-ukra-gold font-bold rounded-xl hover:bg-ukra-gold hover:text-white transition">
+              {lang === 'ar' ? 'Switch to English' : 'تغيير للعربية'}
+            </button>
+            <Link to="/admin-login" onClick={closeMenu} className="block text-center text-xs text-gray-400 mt-4 flex items-center justify-center gap-1">
+               <Lock className="w-3 h-3" /> Admin Access
+            </Link>
+         </div>
+      </div>
     </>
   );
 };

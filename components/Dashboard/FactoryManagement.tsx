@@ -7,15 +7,27 @@ import {
 import { 
   Factory, Users, Plus, Loader2, X, MapPin, CheckCircle, Clock, CalendarRange, Trash2, 
   Edit, Search, ArrowUpDown, Bell, FileText, ShoppingCart, Calculator, Receipt, DollarSign, 
-  Wallet, ShieldCheck, UploadCloud
+  Wallet, ShieldCheck, UploadCloud, Download
 } from 'lucide-react';
 
-export const FactoryManagement = () => {
-  // ==========================================
-  // 1. نظام الصلاحيات (محاكي للتجربة)
-  // ==========================================
-  const [userRole, setUserRole] = useState<'factory_manager' | 'accountant'>('factory_manager');
+import { useAuth } from '../../context/AuthContext'; // تأكد من إضافتها فوق مع الـ imports
 
+export const FactoryManagement = () => {
+  const { user } = useAuth(); // جلب بيانات الموظف
+  const isOwner = user?.role === 'owner';
+  const allowedTabs = user?.allowed_tabs || [];
+
+  // تحديد ما يملكه الموظف من صلاحيات
+  const hasManagerAccess = isOwner || allowedTabs.includes('factory_manager');
+  const hasAccountantAccess = isOwner || allowedTabs.includes('factory_accountant');
+
+  // استبدال حالة الـ userRole القديمة لتصبح متغيرة ديناميكياً
+  const [userRole, setUserRole] = useState<'factory_manager' | 'accountant'>(() => {
+    if (hasManagerAccess) return 'factory_manager';
+    if (hasAccountantAccess) return 'accountant';
+    return 'factory_manager'; 
+  });
+  
   // ==========================================
   // 2. الحالات والتبويبات
   // ==========================================
@@ -84,12 +96,7 @@ export const FactoryManagement = () => {
     setLoading(false);
   };
 
-  // تغيير التبويب آلياً إذا تغيرت الصلاحية (لأن المحاسب لا يرى العمال)
-  useEffect(() => {
-    if (userRole === 'accountant' && activeTab === 'workers') {
-      setActiveTab('petty_cash');
-    }
-  }, [userRole]);
+
 
   // ==========================================
   // 5. الإحصائيات والفلاتر
@@ -287,43 +294,90 @@ export const FactoryManagement = () => {
   // ==========================================
   // 8. واجهة المستخدم (الريندر النهائي)
   // ==========================================
+// ==========================================
+  // دالة تصدير البيانات إلى ملف Excel (CSV)
+  // ==========================================
+  const exportToCSV = (type: 'workers' | 'purchases') => {
+    let csvContent = ""; 
+    
+    if (type === 'workers') {
+      csvContent += "اسم العامل,رقم الجوال,تاريخ العمل,وقت البدء,وقت الانصراف,الأجر اليومي,الخصم,الحالة\n";
+      filteredAndSortedTickets.forEach(ticket => {
+        const statusText = ticket.status === 'completed' ? 'مكتمل' : ticket.status === 'checked_in' ? 'متواجد' : 'انتظار';
+        csvContent += `"${ticket.worker_name}","${ticket.phone}","${ticket.work_date}","${ticket.start_time}","${ticket.end_time}","${ticket.daily_wage}","${ticket.deductions}","${statusText}"\n`;
+      });
+    } else if (type === 'purchases') {
+      csvContent += "رقم المرجع,تاريخ الفاتورة,البيان,التصنيف,المبلغ,ارتباط المشروع\n";
+      purchases.forEach(p => {
+        const date = p.created_at ? new Date(p.created_at).toLocaleDateString('ar-SA') : new Date().toLocaleDateString('ar-SA');
+        const refId = p.id ? String(p.id).substring(0,8) : '-';
+        // علامة # موجودة هنا ولن تسبب أي مشكلة بعد الآن
+        const project = p.project_id ? `الطلب #${String(p.project_id).substring(0,6)}` : 'مصروف عام';
+        
+        csvContent += `"${refId}","${date}","${p.item_name}","${p.category}","${p.amount}","${project}"\n`;
+      });
+    }
+
+    // 💡 استخدام تقنية Blob لحل مشكلة الرموز (مثل #) ودعم الملفات الكبيرة
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `تقرير_${type === 'workers' ? 'العمالة' : 'المشتريات'}_${new Date().toLocaleDateString('en-CA')}.csv`);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // تنظيف الذاكرة بعد التحميل
+  };
+
+  // 4. الحماية: إذا لم يكن يمتلك أي صلاحية للمصنع إطلاقاً
+  if (!hasManagerAccess && !hasAccountantAccess) {
+    return (
+       <div className="flex flex-col items-center justify-center h-screen">
+         <ShieldCheck className="w-16 h-16 text-red-400 mb-4" />
+         <h2 className="text-xl font-bold text-gray-800">صلاحية غير متوفرة</h2>
+         <p className="text-gray-500 mt-2">عذراً، ليس لديك صلاحية لعرض لوحة إدارة المصنع.</p>
+       </div>
+    );
+  }
 
   if (loading) return <div className="text-center py-20"><Loader2 className="w-10 h-10 animate-spin mx-auto text-[#c5a059]" /></div>;
 
   return (
     <div className="bg-gray-50/50 min-h-screen p-4 md:p-6 font-tajawal" dir="rtl">
       
-      {/* 🟢 محاكي الصلاحيات (للتجربة فقط - سيتم حذفه عند ربط نظام تسجيل الدخول الحقيقي) */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="text-blue-500" />
-          <span className="font-bold text-[#1a2a3a]">محاكي الصلاحيات الحالي:</span>
+    {/* عرض أزرار التبديل فقط إذا كان المستخدم يملك الصلاحيتين معاً (أو المالك) */}
+      {(isOwner || (hasManagerAccess && hasAccountantAccess)) && (
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="text-[#c5a059]" />
+            <span className="font-bold text-[#1a2a3a]">تبديل شاشة العرض (صلاحية إدارية)</span>
+          </div>
+          <div className="flex bg-gray-100 p-1 rounded-xl">
+            <button onClick={() => {setUserRole('factory_manager'); setActiveTab('workers');}} className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${userRole === 'factory_manager' ? 'bg-[#1a2a3a] text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'}`}>مدير المصنع</button>
+            <button onClick={() => {setUserRole('accountant'); setActiveTab('petty_cash');}} className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${userRole === 'accountant' ? 'bg-[#1a2a3a] text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'}`}>المحاسب المالي</button>
+          </div>
         </div>
-        <div className="flex bg-gray-100 p-1 rounded-xl">
-          <button onClick={() => setUserRole('factory_manager')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${userRole === 'factory_manager' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'}`}>مدير المصنع</button>
-          <button onClick={() => setUserRole('accountant')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${userRole === 'accountant' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'}`}>المحاسب المالي</button>
-        </div>
-      </div>
+      )}
 
       {/* التبويبات العلوية (تتغير حسب الصلاحية) */}
+{/* التبويبات العلوية (تظهر للجميع، ولكن الصلاحيات بالداخل تختلف) */}
       <div className="flex gap-4 border-b border-gray-200 mb-6 overflow-x-auto custom-scrollbar">
-        {userRole === 'factory_manager' && (
-          <>
-            <button onClick={() => setActiveTab('workers')} className={`pb-3 font-bold text-base md:text-lg flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'workers' ? 'text-[#c5a059] border-b-2 border-[#c5a059]' : 'text-gray-400 hover:text-gray-600'}`}>
-              <Users size={20} /> إدارة العمالة والتسويات
-            </button>
-            <button onClick={() => setActiveTab('purchases')} className={`pb-3 font-bold text-base md:text-lg flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'purchases' ? 'text-[#c5a059] border-b-2 border-[#c5a059]' : 'text-gray-400 hover:text-gray-600'}`}>
-              <ShoppingCart size={20} /> سجل المشتريات والمصروفات
-            </button>
-          </>
-        )}
+        <button onClick={() => setActiveTab('workers')} className={`pb-3 font-bold text-base md:text-lg flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'workers' ? 'text-[#c5a059] border-b-2 border-[#c5a059]' : 'text-gray-400 hover:text-gray-600'}`}>
+          <Users size={20} /> إدارة العمالة والتسويات
+        </button>
+        <button onClick={() => setActiveTab('purchases')} className={`pb-3 font-bold text-base md:text-lg flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'purchases' ? 'text-[#c5a059] border-b-2 border-[#c5a059]' : 'text-gray-400 hover:text-gray-600'}`}>
+          <ShoppingCart size={20} /> سجل المشتريات والمصروفات
+        </button>
         <button onClick={() => setActiveTab('petty_cash')} className={`pb-3 font-bold text-base md:text-lg flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'petty_cash' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
           <Wallet size={20} /> إدارة العهد المالية
         </button>
       </div>
 
       {/* ==================== تبويب العمالة (للمدير فقط) ==================== */}
-      {activeTab === 'workers' && userRole === 'factory_manager' && (
+      {activeTab === 'workers' && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -343,8 +397,18 @@ export const FactoryManagement = () => {
                 <button onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')} className="p-2 border rounded-xl hover:bg-gray-50 text-gray-600"><ArrowUpDown size={20} /></button>
               </div>
               <div className="flex gap-2 w-full md:w-auto">
-                {selectedForSettlement.length > 0 && <button onClick={handleSettlement} className="flex-1 md:flex-none bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 font-bold text-sm flex items-center justify-center gap-2"><FileText size={16} /> تسوية ({selectedForSettlement.length}) أيام</button>}
-                <button onClick={() => setIsModalOpen(true)} className="flex-1 md:flex-none bg-[#1a2a3a] text-white px-4 py-2 rounded-xl hover:bg-opacity-90 font-bold text-sm flex items-center justify-center gap-2"><CalendarRange size={16} /> جدولة عمل</button>
+                {/* 👁️ زر التصدير يظهر للجميع (المدير والمحاسب) */}
+                <button onClick={() => exportToCSV('workers')} className="flex-1 md:flex-none bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 font-bold text-sm flex items-center justify-center gap-2 transition-colors">
+                  <Download size={16} /> تقرير Excel
+                </button>
+
+                {/* 🔒 تظهر أزرار الإضافة والتسوية للمدير فقط */}
+                {userRole === 'factory_manager' && (
+                  <>
+                    {selectedForSettlement.length > 0 && <button onClick={handleSettlement} className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 font-bold text-sm flex items-center justify-center gap-2"><FileText size={16} /> تسوية ({selectedForSettlement.length}) أيام</button>}
+                    <button onClick={() => setIsModalOpen(true)} className="flex-1 md:flex-none bg-[#1a2a3a] text-white px-4 py-2 rounded-xl hover:bg-opacity-90 font-bold text-sm flex items-center justify-center gap-2"><CalendarRange size={16} /> جدولة عمل</button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -352,8 +416,9 @@ export const FactoryManagement = () => {
               <table className="w-full text-right">
                 <thead className="bg-gray-50 text-gray-600 text-sm border-b border-gray-100">
                   <tr>
-                    <th className="p-4 rounded-r-lg w-10"><input type="checkbox" onChange={(e) => setSelectedForSettlement(e.target.checked ? tickets.map(t => t.id) : [])} checked={selectedForSettlement.length === tickets.length && tickets.length > 0} className="w-4 h-4 accent-[#c5a059] rounded" /></th>
-                    <th className="p-4">الاسم</th><th className="p-4">تاريخ العمل</th><th className="p-4">المالية</th><th className="p-4 text-center">الحالة</th><th className="p-4 rounded-l-lg text-center">إجراءات</th>
+                    {userRole === 'factory_manager' && <th className="p-4 rounded-r-lg w-10"><input type="checkbox" onChange={(e) => setSelectedForSettlement(e.target.checked ? tickets.map(t => t.id) : [])} checked={selectedForSettlement.length === tickets.length && tickets.length > 0} className="w-4 h-4 accent-[#c5a059] rounded" /></th>}
+                    <th className="p-4">الاسم</th><th className="p-4">تاريخ العمل</th><th className="p-4">المالية</th><th className="p-4 text-center">الحالة</th>
+                    {userRole === 'factory_manager' && <th className="p-4 rounded-l-lg text-center">إجراءات</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -362,7 +427,8 @@ export const FactoryManagement = () => {
                     const canEditAdmin = ticket.status === 'pending';
                     return (
                       <tr key={ticket.id} className={`transition-colors ${late ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-gray-50'}`}>
-                        <td className="p-4 text-center"><input type="checkbox" checked={selectedForSettlement.includes(ticket.id)} onChange={(e) => { if(e.target.checked) setSelectedForSettlement([...selectedForSettlement, ticket.id]); else setSelectedForSettlement(selectedForSettlement.filter(id => id !== ticket.id)); }} className="w-4 h-4 accent-[#c5a059] rounded" /></td>
+                        {userRole === 'factory_manager' && <td className="p-4 text-center"><input type="checkbox" checked={selectedForSettlement.includes(ticket.id)} onChange={(e) => { if(e.target.checked) setSelectedForSettlement([...selectedForSettlement, ticket.id]); else setSelectedForSettlement(selectedForSettlement.filter(id => id !== ticket.id)); }} className="w-4 h-4 accent-[#c5a059] rounded" /></td>}
+                        
                         <td className="p-4 font-bold text-[#1a2a3a]"><div className="flex items-center gap-2">{late && <Bell className="text-red-500 animate-pulse" size={16} />}{ticket.worker_name}</div><span className="text-xs text-gray-400 font-num" dir="ltr">{ticket.phone}</span></td>
                         <td className="p-4 text-sm"><span className={`font-num font-bold ${late ? 'text-red-600' : 'text-[#c5a059]'}`}>{ticket.work_date}</span><br/><span className="text-xs text-gray-500 font-num">{ticket.start_time} - {ticket.end_time}</span></td>
                         <td className="p-4 text-sm font-num"><div className="text-[#1a2a3a] font-bold">أجر: {ticket.daily_wage}</div>{ticket.deductions > 0 && <div className="text-red-500 text-xs">خصم: -{ticket.deductions}</div>}</td>
@@ -371,11 +437,15 @@ export const FactoryManagement = () => {
                           {ticket.status === 'checked_in' && <span className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1"><MapPin size={12}/> متواجد الآن</span>}
                           {ticket.status === 'completed' && <span className="bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1"><CheckCircle size={12}/> مكتمل</span>}
                         </td>
-                        <td className="p-4 flex items-center justify-center gap-1">
-                          <button title="خصم/سلفة" className="text-green-600 hover:bg-green-50 p-2 rounded-lg" onClick={() => { setDeductionTicket(ticket); setIsDeductionModalOpen(true); }}><DollarSign size={16} /></button>
-                          <button disabled={!canEditAdmin} title="تعديل إداري" className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg disabled:opacity-30" onClick={() => { setEditingTicket(ticket); setIsEditModalOpen(true); }}><Edit size={16} /></button>
-                          <button disabled={!canEditAdmin || cancelLoading === ticket.id} title="إلغاء" className="text-red-500 hover:bg-red-50 p-2 rounded-lg disabled:opacity-30" onClick={() => handleCancelTicket(ticket)}>{cancelLoading === ticket.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 size={16} />}</button>
-                        </td>
+                        
+                        {/* 🔒 تظهر أزرار الخصم والتعديل للمدير فقط */}
+                        {userRole === 'factory_manager' && (
+                          <td className="p-4 flex items-center justify-center gap-1">
+                            <button title="خصم/سلفة" className="text-green-600 hover:bg-green-50 p-2 rounded-lg" onClick={() => { setDeductionTicket(ticket); setIsDeductionModalOpen(true); }}><DollarSign size={16} /></button>
+                            <button disabled={!canEditAdmin} title="تعديل إداري" className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg disabled:opacity-30" onClick={() => { setEditingTicket(ticket); setIsEditModalOpen(true); }}><Edit size={16} /></button>
+                            <button disabled={!canEditAdmin || cancelLoading === ticket.id} title="إلغاء" className="text-red-500 hover:bg-red-50 p-2 rounded-lg disabled:opacity-30" onClick={() => handleCancelTicket(ticket)}>{cancelLoading === ticket.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 size={16} />}</button>
+                          </td>
+                        )}
                       </tr>
                   )})}
                   {tickets.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-gray-500">لا توجد عمالة مجدولة حالياً.</td></tr>}
@@ -387,7 +457,7 @@ export const FactoryManagement = () => {
       )}
 
       {/* ==================== تبويب المشتريات (للمدير فقط) ==================== */}
-      {activeTab === 'purchases' && userRole === 'factory_manager' && (
+      {activeTab === 'purchases' &&  (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 w-full md:w-1/3">
             <div className="p-3 bg-yellow-50 text-yellow-600 rounded-xl"><ShoppingCart size={24} /></div>
@@ -397,7 +467,18 @@ export const FactoryManagement = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-lg text-[#1a2a3a]">سجل المشتريات والمصروفات</h3>
-              <button onClick={() => setIsPurchaseModalOpen(true)} className="bg-[#c5a059] text-white px-4 py-2 rounded-xl hover:bg-yellow-600 font-bold text-sm flex items-center gap-2"><Plus size={16} /> إضافة فاتورة شراء</button>
+              
+              <div className="flex items-center gap-2">
+                {/* 👁️ زر التصدير يظهر للجميع */}
+                <button onClick={() => exportToCSV('purchases')} className="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 font-bold text-sm flex items-center gap-2 transition-colors">
+                  <Download size={16} /> تقرير Excel
+                </button>
+
+                {/* 🔒 يظهر زر الإضافة للمدير فقط */}
+                {userRole === 'factory_manager' && (
+                  <button onClick={() => setIsPurchaseModalOpen(true)} className="bg-[#c5a059] text-white px-4 py-2 rounded-xl hover:bg-yellow-600 font-bold text-sm flex items-center gap-2"><Plus size={16} /> إضافة فاتورة شراء</button>
+                )}
+              </div>
             </div>
 
             <div className="overflow-x-auto">

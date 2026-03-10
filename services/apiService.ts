@@ -33,17 +33,24 @@ export const fileToBase64 = (file: File): Promise<string> => {
 /**
  * دالة داخلية لإرسال أي طلب إلى البوابة الموحدة
  */
-const sendToGateway = async (payload: any) => {
+export const sendToGateway = async ({ phone, email, message, emailSubject, emailHtml }: any) => {
   try {
-    const response = await fetch(`${WHATSAPP_API_URL}/send`, {
+    // التأكد من توفر الرسالة النصية كبديل لتفادي رفض السيرفر للطلب
+    const finalMessage = message || "رسالة من UKRA"; 
+
+    await fetch('http://167.86.73.97:8080/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ 
+        phone: phone || null, 
+        email: email || null, 
+        message: finalMessage, // إجباري إرسالها
+        subject: emailSubject, 
+        html: emailHtml 
+      })
     });
-    return response.ok;
   } catch (error) {
-    console.error('WhatsApp Gateway Error:', error);
-    return false;
+    console.error('خطأ في الاتصال بخادم الإرسال:', error);
   }
 };
 
@@ -103,125 +110,154 @@ export const fetchBookedSlots = async (date: string): Promise<string[]> => {
 };
 
 // ==========================================
-// --- Unified OTP Functions (النظام الموحد) ---
+// --- Unified OTP Functions (النظام الموحد الذكي) ---
 // ==========================================
 
-export const requestUnifiedOTP = async (phone: string, email: string): Promise<boolean> => {
+// 1. طلب رمز للمسجلين مسبقاً (Login) - مع تحديد وسيلة الإرسال
+export const requestLoginOTP = async (identifier: string, sendMethod: 'phone' | 'email'): Promise<{ success: boolean; message: string }> => {
   try {
-    let formattedPhone = phone ? phone.replace(/\D/g, '') : '';
-    if (formattedPhone.startsWith('05')) formattedPhone = '966' + formattedPhone.substring(1);
+    let cleanIdentifier = identifier.trim().replace(/\D/g, '');
+    if (cleanIdentifier.startsWith('05')) cleanIdentifier = '966' + cleanIdentifier.substring(1);
+    if (!cleanIdentifier || cleanIdentifier.length < 5) cleanIdentifier = identifier.trim().toLowerCase();
 
-    // 1. توليد رمز التحقق (4 أرقام)
+    // البحث عن المستخدم 
+    const { data: existingUser } = await supabase
+      .from('customers')
+      .select('phone, email, full_name')
+      .or(`phone.eq.${cleanIdentifier},email.eq.${cleanIdentifier}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (!existingUser) {
+      return { success: false, message: 'هذا الحساب غير مسجل لدينا. يرجى اختيار "عميل جديد" لإنشاء حساب.' };
+    }
+
     const code = Math.floor(1000 + Math.random() * 9000).toString(); 
     const expiresAt = new Date(Date.now() + 10 * 60000).toISOString();
 
-    // 2. حفظ الرمز في قاعدة بيانات Supabase (لكي يعمل التحقق لاحقاً)
     const { error: dbError } = await supabase.from('otp_codes').insert({
-      phone: formattedPhone || null,
-      email: email || null,
+      phone: existingUser.phone,
+      email: existingUser.email,
       code: code,
       expires_at: expiresAt
     });
 
-    if (dbError) {
-      console.error("Database Insert Error:", dbError);
-      return false;
+    if (dbError) return { success: false, message: 'حدث خطأ في النظام، يرجى المحاولة لاحقاً.' };
+
+    const message = `*مرحباً ${existingUser.full_name}*\nرمز الدخول الخاص بك في UKRA:\n👉 *${code}*\n\nيرجى عدم مشاركته مع أحد.`;
+    const emailHtml = `<div dir="rtl" style="font-family: sans-serif; text-align: center; padding: 20px;"><h2>رمز الدخول الخاص بك:</h2><h1 style="color: #c5a059; font-size: 40px; letter-spacing: 5px;">${code}</h1></div>`;
+
+    // إرسال الرمز للوسيلة التي اختارها العميل فقط!
+    if (sendMethod === 'phone') {
+      sendToGateway({ phone: existingUser.phone, message: message });
+    } else {
+      sendToGateway({ 
+        email: existingUser.email,
+        emailSubject: "رمز الدخول الخاص بك - UKRA",
+        emailHtml: emailHtml
+      });
     }
 
-    // 3. تجهيز رسالة الواتساب
-    const message = `*رمز تحقق UKRA:*\n👉 *${code}*\n\nيرجى عدم مشاركته مع أحد.`;
-
-    // 4. تجهيز قالب الإيميل الاحترافي (مدمج فيه كود التحقق والشعار)
-    const emailSubject = "رمز التحقق الخاص بك من UKRA";
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html lang="ar" dir="rtl">
-      <head>
-        <meta charset="UTF-8">
-      </head>
-      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f5f7;">
-        <div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
-          
-          <div style="background-color: #1a2a3a; padding: 40px 20px; text-align: center; border-bottom: 4px solid #c5a059;">
-            <img src="https://i.imgur.com/DVM92N4.png" alt="UKRA Logo" style="max-width: 160px; height: auto;" />
-          </div>
-          
-          <div style="padding: 50px 40px; text-align: center; color: #333333; direction: rtl;">
-            <h1 style="color: #1a2a3a; font-size: 26px; margin-bottom: 20px; font-weight: 900;">تسجيل الدخول الآمن</h1>
-            <p style="line-height: 1.8; margin-bottom: 10px; font-size: 16px; color: #555;">مرحباً بك في منصة <strong>UKRA</strong>،</p>
-            <p style="line-height: 1.8; margin-bottom: 30px; font-size: 16px; color: #555;">لقد طلبت رمز التحقق للدخول إلى حسابك. يرجى استخدام الرمز أدناه لإتمام العملية:</p>
-            
-            <div style="background-color: #f8f9fa; border: 2px dashed #c5a059; color: #1a2a3a; padding: 25px; font-size: 38px; font-weight: 900; letter-spacing: 12px; border-radius: 12px; margin: 0 auto; width: fit-content; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02);">
-              ${code}
-            </div>
-            
-            <p style="font-size: 13px; color: #888; margin-top: 40px; font-weight: bold;">صلاحية الرمز: 10 دقائق فقط.</p>
-            <p style="font-size: 13px; color: #e74c3c;">يرجى عدم مشاركة هذا الرمز مع أي شخص لضمان أمان حسابك.</p>
-          </div>
-          
-          <div style="background-color: #fbfbfb; padding: 25px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eeeeee;">
-            <p style="margin: 0; line-height: 1.6;">&copy; 2026 UKRA Engineering & Construction.<br>المدينة المنورة، المملكة العربية السعودية</p>
-            <p style="direction: ltr; font-family: monospace; margin-top: 10px; color: #ccc;">Access Type: OTP Verification via StackCP</p>
-          </div>
-          
-        </div>
-      </body>
-      </html>
-    `;
-
-    // 5. إرسال الطلب إلى سيرفر الواتساب/الإيميل الخاص بك
-    sendToGateway({ 
-        phone: formattedPhone, 
-        message: message,
-        email: email,
-        emailSubject: emailSubject,
-        emailHtml: emailHtml
-    });
-
-    return true; 
+    return { success: true, message: `تم إرسال رمز التحقق إلى ${sendMethod === 'phone' ? 'جوالك' : 'بريدك الإلكتروني'}.` }; 
   } catch (error) {
-    console.error('Unified OTP Request Failed:', error);
-    return false;
+    return { success: false, message: 'فشل الاتصال بالخادم.' };
   }
 };
 
-// 2. التحقق من الرمز (محدثة لتجنب خطأ 406 و 409 ولجلب التبويبات)
-export const verifyUnifiedOTP = async (identifier: string, code: string): Promise<any> => {
+// 2. طلب رمز لعميل جديد (Register) - يرسل للوسيلتين معاً
+export const requestRegisterOTP = async (name: string, phone: string, email: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    let cleanPhone = phone.trim().replace(/\D/g, '');
+    if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.substring(1);
+
+    if (!cleanPhone || !email || !name) {
+      return { success: false, message: 'جميع البيانات (الاسم، الجوال، البريد) مطلوبة للتسجيل.' };
+    }
+
+    // التأكد من أن الجوال غير مسجل مسبقاً
+    const { data: existingUser } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('phone', cleanPhone)
+      .maybeSingle();
+
+    if (existingUser) {
+      return { success: false, message: 'رقم الجوال مسجل مسبقاً! يرجى اختيار "تسجيل الدخول كعميل حالي".' };
+    }
+
+    const code = Math.floor(1000 + Math.random() * 9000).toString(); 
+    const expiresAt = new Date(Date.now() + 10 * 60000).toISOString();
+
+    const { error: dbError } = await supabase.from('otp_codes').insert({
+      phone: cleanPhone,
+      email: email.trim().toLowerCase(),
+      code: code,
+      expires_at: expiresAt
+    });
+
+    if (dbError) return { success: false, message: 'خطأ في النظام.' };
+
+    const message = `*مرحباً بك في UKRA يا ${name}*\nرمز التحقق لتفعيل حسابك:\n👉 *${code}*`;
+    const emailHtml = `<div dir="rtl" style="font-family: sans-serif; text-align: center; padding: 20px;"><h2>رمز تفعيل الحساب:</h2><h1 style="color: #c5a059; font-size: 40px; letter-spacing: 5px;">${code}</h1></div>`;
+
+    // إرسال للوسيلتين معاً في حالة التسجيل الجديد
+    sendToGateway({ 
+        phone: cleanPhone, 
+        message: message,
+        email: email.trim().toLowerCase(),
+        emailSubject: "تفعيل حسابك في UKRA",
+        emailHtml: emailHtml
+    });
+
+    return { success: true, message: 'تم إرسال رمز التفعيل إلى جوالك وبريدك الإلكتروني.' }; 
+  } catch (error) {
+    return { success: false, message: 'فشل الاتصال بالخادم.' };
+  }
+};
+
+// 3. التحقق من الرمز (دالة موحدة وذكية)
+export const verifyUnifiedOTP = async (
+  identifier: string,
+  code: string, 
+  registerData?: { name: string; email: string; phone: string }
+): Promise<any> => {
   try {
     let cleanIdentifier = identifier.replace(/\D/g, '');
     if (cleanIdentifier.startsWith('05')) cleanIdentifier = '966' + cleanIdentifier.substring(1);
-    if (!cleanIdentifier || cleanIdentifier.length < 5) cleanIdentifier = identifier;
+    if (!cleanIdentifier || cleanIdentifier.length < 5) cleanIdentifier = identifier.trim().toLowerCase();
 
     const { data: codes, error: codeErr } = await supabase
       .from('otp_codes')
       .select('*')
       .eq('code', code)
-      .or(`phone.eq.${cleanIdentifier},email.eq.${identifier}`)
+      .or(`phone.eq.${cleanIdentifier},email.eq.${cleanIdentifier}`)
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(1);
 
     const otpData = codes?.[0];
 
-    if (codeErr || !otpData) return { success: false, message: 'الرمز غير صحيح أو منتهي الصلاحية' };
+    if (codeErr || !otpData) return { success: false, message: 'الرمز غير صحيح أو منتهي الصلاحية.' };
 
     await supabase.from('otp_codes').delete().eq('id', otpData.id);
 
     let { data: profiles } = await supabase
       .from('customers')
       .select('*')
-      .or(`phone.eq.${otpData.phone},email.eq.${otpData.email}`)
+      .eq('phone', otpData.phone)
       .limit(1);
     
     let profile = profiles?.[0];
     
     if (!profile) {
+      if (!registerData) return { success: false, message: 'حدث خطأ مجهول، الحساب غير موجود.' };
+      
       const { data: newProfiles } = await supabase
         .from('customers')
         .insert([{ 
            phone: otpData.phone, 
-           email: otpData.email, 
-           full_name: 'Guest User', 
+           email: registerData.email, 
+           full_name: registerData.name, 
            role: 'customer' 
         }])
         .select().limit(1);
@@ -236,7 +272,7 @@ export const verifyUnifiedOTP = async (identifier: string, code: string): Promis
          role: profile.role || 'customer', 
          phone: profile.phone,
          email: profile.email,
-         allowed_tabs: profile.allowed_tabs || [] // 👈 هنا السر! قمنا بجلب التبويبات المسموحة
+         allowed_tabs: profile.allowed_tabs || [] 
       }
     };
   } catch (error: any) {
@@ -263,12 +299,13 @@ export const loginClient = async (email: string, password: string): Promise<any>
     return { 
       success: true, 
       user: {
-        id: data.user.id,
+        id: profile?.id, // 👈 السر الأول: نستخدم ID الصف لتسهيل مزامنة الخلفية
+        user_id: data.user.id,
         email: data.user.email,
         name: profile?.full_name || data.user.user_metadata.full_name || 'User',
         role: profile?.role || 'customer',
         phone: profile?.phone,
-        allowed_tabs: profile?.allowed_tabs || [] // 👈 وهنا أيضاً أضفنا جلب التبويبات
+        allowed_tabs: profile?.allowed_tabs || [] // 👈 السر الثاني: جلب التبويبات من قاعدة البيانات
       }
     };
   } catch (error: any) {
@@ -310,9 +347,31 @@ export const registerClient = async (name: string, email: string, phone: string,
   }
 };
 
-export const fetchUserRole = async (phone: string): Promise<any> => {
-  const { data } = await supabase.from('customers').select('role').eq('phone', phone).maybeSingle();
-  return { success: true, role: data?.role || 'customer' };
+export const fetchUserRole = async (identifier: string): Promise<any> => {
+  try {
+    // التحقق مما إذا كان المعرف هو ID أو رقم جوال لتفادي أخطاء قاعدة البيانات
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+    
+    let query = supabase.from('customers').select('role, allowed_tabs, full_name, phone');
+    if (isUUID) {
+      query = query.eq('id', identifier);
+    } else {
+      query = query.eq('phone', identifier);
+    }
+    
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    
+    return { 
+      success: true, 
+      role: data?.role || 'customer',
+      allowed_tabs: data?.allowed_tabs || [], // 👈 جلب التبويبات المسموحة
+      name: data?.full_name,
+      phone: data?.phone
+    };
+  } catch (error) {
+    return { success: false };
+  }
 };
 
 export const adminUpdateUserRole = async (userId: string, role: string) => {
@@ -1130,5 +1189,41 @@ export const fetchActiveProjects = async () => {
   } catch (error) {
     console.error('❌ خطأ في جلب المشاريع:', error);
     return [];
+  }
+};
+
+// ==========================================
+// --- دوال إدارة الحساب الشخصي (Profile) ---
+// ==========================================
+
+// 1. تحديث بيانات المستخدم (بالاعتماد على رقم الجوال كمعرف أساسي)
+export const updateCustomerProfile = async (phone: string, updates: { full_name?: string; email?: string }) => {
+  try {
+    const { error } = await supabase
+      .from('customers')
+      .update(updates)
+      .eq('phone', phone);
+    
+    if (error) throw error;
+    return { success: true, message: 'تم تحديث البيانات بنجاح' };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+};
+
+// 2. حذف الحساب نهائياً (بناءً على رقم الجوال)
+export const deleteCustomerAccount = async (phone: string) => {
+  try {
+    // سيتم حذف صف العميل، وإذا قمنا بتفعيل (Cascade) في قاعدة البيانات
+    // سيتم حذف كل ما يتعلق به (طلبات، مواعيد، عهد، الخ) تلقائياً
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('phone', phone);
+      
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, message: error.message };
   }
 };
