@@ -160,7 +160,7 @@ export const FactoryManagement = () => {
     if (success) {
       const attendanceLink = `https://ukra.sa/attendance/${formattedPhone}`;
       const message = `أهلاً بك يا ${newTicket.worker_name} 👋\n\nتم تسجيل جدول عمل لك في مصنع UKRA للفترة من ${newTicket.start_date} إلى ${newTicket.end_date}\n⏰ وقت الدوام: من ${newTicket.start_time} إلى ${newTicket.end_time}\n📍 *رابط الحضور للانصراف:*\n${attendanceLink}`;
-      try { await fetch('http://167.86.73.97:8080/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: formattedPhone, message: message }) }); } catch (err) {}
+      try { await fetch('https://api.ukra.sa/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: formattedPhone, message: message }) }); } catch (err) {}
       
       setIsModalOpen(false);
       setNewTicket({ worker_name: '', phone: '', daily_wage: '', start_date: '', end_date: '', start_time: '08:00', end_time: '17:00' });
@@ -178,7 +178,7 @@ export const FactoryManagement = () => {
     const success = await updateWorkTicket(editingTicket.id, updates);
     if (success) {
       const message = `مرحباً ${editingTicket.worker_name} ✏️\n\nتم تعديل بيانات يوم العمل الخاص بك لتصبح:\n📅 التاريخ: ${updates.work_date}\n⏰ الوقت: ${updates.start_time} - ${updates.end_time}`;
-      try { await fetch('http://167.86.73.97:8080/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: editingTicket.phone, message: message }) }); } catch (err) {}
+      try { await fetch('https://api.ukra.sa/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: editingTicket.phone, message: message }) }); } catch (err) {}
       setIsEditModalOpen(false); loadData();
     } else { alert('خطأ في التعديل.'); }
     setAddLoading(false);
@@ -197,7 +197,7 @@ export const FactoryManagement = () => {
     if (!window.confirm(`تأكيد إلغاء يوم العمل للعامل ${ticket.worker_name}؟\nسيتم إرسال إشعار اعتذار له.`)) return;
     setCancelLoading(ticket.id);
     const message = `مرحباً ${ticket.worker_name}،\n\nنود إعلامك بأنه تم **إلغاء** يوم العمل المقرر لك بتاريخ ${ticket.work_date}.\nنعتذر عن الإزعاج.`;
-    try { await fetch('http://167.86.73.97:8080/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: ticket.phone, message: message }) }); } catch (e) {}
+    try { await fetch('https://api.ukra.sa/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: ticket.phone, message: message }) }); } catch (e) {}
     const success = await deleteWorkTicket(ticket.id);
     if (success) loadData();
     setCancelLoading(null);

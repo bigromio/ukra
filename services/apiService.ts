@@ -11,7 +11,7 @@ import {
 } from '../types';
 
 // رابط سيرفر الواتساب (Contabo Gateway)
-const WHATSAPP_API_URL = 'http://167.86.73.97:8080';
+const WHATSAPP_API_URL = 'https://api.ukra.sa';
 
 // ==========================================
 // 1. Utility Functions (أدوات مساعدة)
@@ -38,7 +38,7 @@ export const sendToGateway = async ({ phone, email, message, emailSubject, email
     // التأكد من توفر الرسالة النصية كبديل لتفادي رفض السيرفر للطلب
     const finalMessage = message || "رسالة من UKRA"; 
 
-    await fetch('http://167.86.73.97:8080/send', {
+    await fetch('https://api.ukra.sa/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -78,12 +78,16 @@ export const sendWhatsAppPDF = async (phone: string, pdfUrl: string, caption: st
   let formattedPhone = phone.replace(/\D/g, '');
   if (formattedPhone.startsWith('05')) formattedPhone = '966' + formattedPhone.substring(1);
 
-  return await sendToGateway({
+  // 👈 قمنا بإزالة كلمة return من هنا
+  await sendToGateway({
     phone: formattedPhone,
     message: caption,
     mediaUrl: pdfUrl,
     isFile: true
   });
+
+  // 👈 وأضفنا هذا السطر لكي نُرجع (صح) ونسكت الخطأ
+  return true; 
 };
 
 export const fetchBookedSlots = async (date: string): Promise<string[]> => {

@@ -1,6 +1,9 @@
 
-/* ... existing styles ... */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+/* هنا تبدأ باقي أكوادك العادية مثل .input-std وغيرها... */
 /* New Utilities for Forms */
 .input-std {
     width: 100%;
@@ -67,7 +70,7 @@ body {
 }
 
 /* Immersive Sections */
-.immersive-section {
+.immersive-section {    
     position: relative; width: 100%; height: 100vh;
     overflow: hidden; display: flex; align-items: center;
     background-color: var(--primary-navy);
